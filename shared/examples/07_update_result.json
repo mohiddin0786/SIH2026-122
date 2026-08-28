@@ -1,0 +1,20 @@
+{
+  "report_id": "RPT-0001",
+  "update_status": "UPDATED",
+  "activity_id": "CIV-001",
+  "previous_execution_state": {
+    "activity_id": "CIV-001",
+    "actual_status": "NOT_STARTED",
+    "actual_progress": null,
+    "last_report_id": null,
+    "last_update_timestamp": null
+  },
+  "new_execution_state": {
+    "activity_id": "CIV-001",
+    "actual_status": "IN_PROGRESS",
+    "actual_progress": 10.0,
+    "last_report_id": "RPT-0001",
+    "last_update_timestamp": "2026-01-07T00:00:00Z"
+  },
+  "update_reason": "AUTO_MATCH decision applied; PROGRESS event set actual_progress from extracted value."
+}

@@ -1,0 +1,20 @@
+{
+  "report_id": "RPT-0001",
+  "ranked_candidates": [
+    {
+      "rank": 1,
+      "activity_id": "CIV-001",
+      "activity_name": "Excavate foundation F-101",
+      "scores": {
+        "semantic_score": 0.9,
+        "equipment_score": 1.0,
+        "location_score": 1.0,
+        "activity_score": 0.85,
+        "discipline_score": 1.0,
+        "contradiction_penalty": 0.0,
+        "final_score": 0.94
+      },
+      "explanation": ["equipment tag exact match", "location exact match"]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "report_id": "RPT-0001",
+  "original_text": "Excavate work for F 101 10% complete at PA-A.",
+  "normalized_text": "Excavate work for F-101 10% complete at Pump Area A.",
+  "normalization_flags": ["equipment_tag_standardized", "location_alias_expanded"]
+}

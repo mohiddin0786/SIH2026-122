@@ -1,0 +1,10 @@
+{
+  "report_id": "RPT-0001",
+  "decision": "AUTO_MATCH",
+  "selected_activity_id": "CIV-001",
+  "confidence": 0.94,
+  "best_score": 0.94,
+  "second_best_score": 0.41,
+  "score_gap": 0.53,
+  "decision_reasons": ["high best score", "large gap to next candidate"]
+}

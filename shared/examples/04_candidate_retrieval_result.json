@@ -1,0 +1,21 @@
+{
+  "report_id": "RPT-0001",
+  "top_k": 5,
+  "candidates": [
+    {
+      "activity_id": "CIV-001",
+      "activity_name": "Excavate foundation F-101",
+      "equipment_tag": "F-101",
+      "location": "Pump Area A",
+      "discipline": "Civil",
+      "wbs": "Pump Area A/Civil",
+      "retrieval_score": 0.94,
+      "retrieval_signals": {
+        "semantic_score": 0.9,
+        "equipment_match": 1.0,
+        "location_match": 1.0,
+        "activity_match": 0.85
+      }
+    }
+  ]
+}
