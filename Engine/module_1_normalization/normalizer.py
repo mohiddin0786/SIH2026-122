@@ -35,7 +35,9 @@ _LOCATION_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Examples: F 101, f101, P 102, sp101 -> F-101, F-101, P-102, SP-101.
 # A word boundary on both sides prevents touching percentages or ordinary words.
-_EQUIPMENT_TAG_RE = re.compile(r"\b([A-Za-z]{1,4})[\s-]*(\d{3,4})\b")
+_KNOWN_TAG_PREFIXES = ("SP", "PT", "FT", "MCC", "LP", "HL", "CT", "T", "F", "P")  # or load from domain_context.csv
+_prefix_alt = "|".join(sorted(_KNOWN_TAG_PREFIXES, key=len, reverse=True))
+_EQUIPMENT_TAG_RE = re.compile(rf"\b({_prefix_alt})[\s-]*(\d{{3,4}})\b", re.IGNORECASE)
 
 
 def _apply_rules(
