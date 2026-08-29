@@ -7,6 +7,7 @@ Ground truth must never flow back into Modules 1–6.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
@@ -18,6 +19,36 @@ from shared.schemas import (
     EvaluationResult,
 )
 from shared.constants import DecisionType, LabelType
+from shared.exceptions import EvaluationError
+
+
+def _optional_str(value: Any) -> Optional[str]:
+    """CSV NaN / blank -> None so GroundTruthRecord stays on the shared contract."""
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    return text or None
+
+
+def _ground_truth_record_from_mapping(record: Dict[str, Any]) -> GroundTruthRecord:
+    payload = {
+        "report_id": _optional_str(record.get("report_id")),
+        "correct_activity_id": _optional_str(record.get("correct_activity_id")),
+        "label_type": _optional_str(record.get("label_type")),
+        "verification_source": _optional_str(record.get("verification_source")),
+    }
+    try:
+        return GroundTruthRecord(**payload)
+    except Exception as exc:
+        raise EvaluationError(
+            f"Invalid ground-truth row for report_id={payload.get('report_id')!r}: {exc}",
+            report_id=payload.get("report_id"),
+        ) from exc
 
 
 def _to_ground_truth_records(
@@ -34,50 +65,26 @@ def _to_ground_truth_records(
     """
 
     if isinstance(ground_truth, pd.DataFrame):
-        records = ground_truth.to_dict(orient="records")
-
-        for record in records:
-            if pd.isna(record.get("correct_activity_id")):
-                record["correct_activity_id"] = ""
-
         return [
-            GroundTruthRecord(**record)
-            for record in records
+            _ground_truth_record_from_mapping(record)
+            for record in ground_truth.to_dict(orient="records")
         ]
 
-    if isinstance(ground_truth, str):
+    if isinstance(ground_truth, (str, Path)):
         df = pd.read_csv(ground_truth)
-
-        records = df.to_dict(orient="records")
-
-        for record in records:
-            if pd.isna(record.get("correct_activity_id")):
-                record["correct_activity_id"] = ""
-
         return [
-            GroundTruthRecord(**record)
-            for record in records
+            _ground_truth_record_from_mapping(record)
+            for record in df.to_dict(orient="records")
         ]
 
     records = list(ground_truth)
-
     result = []
 
     for record in records:
-
         if isinstance(record, GroundTruthRecord):
             result.append(record)
-
         elif isinstance(record, dict):
-            record = dict(record)
-
-            if pd.isna(record.get("correct_activity_id")):
-                record["correct_activity_id"] = ""
-
-            result.append(
-                GroundTruthRecord(**record)
-            )
-
+            result.append(_ground_truth_record_from_mapping(record))
         else:
             raise TypeError(
                 "ground_truth must contain "
@@ -126,7 +133,7 @@ def evaluate_predictions(
     predictions: Iterable[Any],
     ground_truth: Any,
     config: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+) -> EvaluationResult:
     """
     Evaluate system predictions against ground truth.
 
@@ -148,8 +155,8 @@ def evaluate_predictions(
 
     Returns
     -------
-    Dict[str, Any]
-        EvaluationResult-compatible dictionary.
+    EvaluationResult
+        Official Module 7 output schema.
     """
 
     config = config or {}
@@ -601,9 +608,7 @@ def evaluate_predictions(
     # Required inline validation
     # ---------------------------------------------------------------
 
-    EvaluationResult(**result)
-
-    return result
+    return EvaluationResult(**result)
 
 
 # ===================================================================
@@ -746,59 +751,53 @@ if __name__ == "__main__":
 
     print(
         "Total reports:",
-        result["total_reports"]
+        result.total_reports
     )
 
     print(
         "Evaluated reports:",
-        result["evaluated_reports"]
+        result.evaluated_reports
     )
 
     print(
         "Excluded ambiguous:",
-        result["excluded_ambiguous"]
+        result.excluded_ambiguous
     )
 
     print(
         "Exact-match accuracy:",
-        result["exact_match_accuracy"]
+        result.exact_match_accuracy
     )
 
     print(
         "AUTO_MATCH accuracy:",
-        result["auto_match_accuracy"]
+        result.auto_match_accuracy
     )
 
     print(
         "HUMAN_REVIEW rate:",
-        result["human_review_rate"]
+        result.human_review_rate
     )
 
     print(
         "UNMATCHED metrics:",
-        result["unmatched_metrics"]
+        result.unmatched_metrics
     )
 
     print(
         "Confusion matrix:",
-        result["confusion_matrix"]
+        result.confusion_matrix
     )
 
     print(
         "Category metrics:",
-        result["category_metrics"]
+        result.category_metrics
     )
 
     print(
         "Misclassified examples:",
-        result["misclassified_examples"]
+        result.misclassified_examples
     )
-
-    # ---------------------------------------------------------------
-    # Required validation
-    # ---------------------------------------------------------------
-
-    EvaluationResult(**result)
 
     print(
         "\n✓ EvaluationResult validation passed"
