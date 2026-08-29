@@ -1,0 +1,29 @@
+{
+  "report_id": "RPT-0001",
+  "normalized_text": "Excavate work for F-101 10% complete at Pump Area A.",
+  "equipment_tags": [
+    {
+      "value": "F-101",
+      "confidence": 0.95
+    }
+  ],
+  "locations": [
+    {
+      "value": "Pump Area A",
+      "confidence": 0.9
+    }
+  ],
+  "activity_type": {
+    "value": "EXCAVATE",
+    "confidence": 0.92
+  },
+  "event_type": {
+    "value": "PROGRESS",
+    "confidence": 0.88
+  },
+  "progress": {
+    "value": 10.0,
+    "confidence": 0.9
+  },
+  "extraction_flags": []
+}
