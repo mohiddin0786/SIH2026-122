@@ -1,0 +1,88 @@
+{
+  "INSTALL": [
+    "install",
+    "installation",
+    "installed",
+    "erect",
+    "erection",
+    "erected",
+    "mount",
+    "mounted"
+  ],
+  "WELD": [
+    "weld",
+    "welding",
+    "welded"
+  ],
+  "FIT_UP": [
+    "fit up",
+    "fit-up",
+    "fitup"
+  ],
+  "INSPECT": [
+    "inspect",
+    "inspection",
+    "inspected",
+    "checking",
+    "checked"
+  ],
+  "HYDROTEST": [
+    "hydrotest",
+    "hydro test",
+    "hydro-test",
+    "hydrotesting",
+    "hydro testing"
+  ],
+  "EXCAVATE": [
+    "excavate",
+    "excavation",
+    "excavating",
+    "excavated"
+  ],
+  "CAST": [
+    "cast",
+    "casting",
+    "concrete casting",
+    "concreting"
+  ],
+  "CURE": [
+    "cure",
+    "curing",
+    "cured"
+  ],
+  "ALIGN": [
+    "align",
+    "alignment",
+    "aligned",
+    "aligning"
+  ],
+  "CALIBRATE": [
+    "calibrate",
+    "calibration",
+    "calibrated",
+    "calibrating"
+  ],
+  "LOOP_CHECK": [
+    "loop check",
+    "loop checking",
+    "loop-check"
+  ],
+  "PULL_CABLE": [
+    "cable pulling",
+    "cable pull",
+    "pull cable",
+    "pulling cable"
+  ],
+  "TERMINATE_CABLE": [
+    "cable termination",
+    "cable terminating",
+    "terminate cable",
+    "cable terminated"
+  ],
+  "CONNECT_MOTOR": [
+    "motor connection",
+    "connect motor",
+    "motor connecting",
+    "motor connected"
+  ]
+}
