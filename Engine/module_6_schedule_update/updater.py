@@ -288,7 +288,7 @@ class ScheduleUpdater:
             activity_id=activity_id,
             actual_status=mapping.actual_status,
             actual_progress=mapping.actual_progress,
-            last_report_id=report_id,
+            last_report_id=extracted_report.report_id,
             last_update_timestamp=timestamp,
         )
 

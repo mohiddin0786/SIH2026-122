@@ -173,6 +173,7 @@ def test_custom_weights_are_respected():
             activity_weight=0.0,
             location_weight=0.0,
             discipline_weight=0.0,
+            date_weight=0.0,
         )
     )
     result = rank_candidates(report, _candidates(report.report_id, candidate), config=heavy_semantic)

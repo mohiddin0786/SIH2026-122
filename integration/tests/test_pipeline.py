@@ -193,56 +193,61 @@ def _make_human_review_mock(schedule_index) -> callable:
     """Create a mock retrieve function for HUMAN_REVIEW tests.
 
     Returns candidates where the top candidate has final_score=0.72
-    (HUMAN_REVIEW range: 0.60 <= score < 0.85) and a gap >= 0.10
-    to the second candidate (final ≈ 0.468).
+    (HUMAN_REVIEW range: 0.50 <= score < 0.80) and a gap >= MIN_SCORE_GAP
+    to the second candidate (final=0.468, UNMATCHED).
 
-    discipline=None makes the discipline signal non-computable, so only
-    4 signals contribute (denominator=0.95), and rank_candidates
-    renormalizes: final = (0.95 * semantic_score) / 0.95 = semantic_score.
-    Setting semantic_score=0.72*0.95 → final=0.72 → HUMAN_REVIEW ✓
-    Gap to second candidate (0.468) = 0.252 >= 0.10 → satisfies MIN_SCORE_GAP ✓
+    Weight config (MatchingWeights): semantic=0.20, equipment=0.30,
+    activity=0.20, location=0.15, discipline=0.05, date=0.10.
+    Top candidate: activity_name has no CAST synonym -> activity non-computable,
+    location=None -> location non-computable, equipment_tag=rc.equipment_tag
+    (matches -> equipment=1.0), discipline=None.
+    Denominator = 0.20+0.30 = 0.50. semantic_score=0.30 ->
+    base = (0.20*0.30 + 0.30*1.0) / 0.50 = 0.72 -> HUMAN_REVIEW.
+    Subsequent candidates: equipment="XX-999" contradiction (penalty=0.35),
+    activity=1.0 (real name has CAST synonym "pour"), location=None
+    (non-computable), semantic=0.30 -> base=0.72 -> 0.72*0.65=0.468 -> UNMATCHED.
+    Gap = 0.72 - 0.468 = 0.252 >= MIN_SCORE_GAP (0.05).
     """
     from Engine.module_3_candidate.retriever import retrieve_candidates as _real_retrieve
 
-    _human_review_semantic = 0.72 * 0.95  # renormalizes to 0.72 in rank_candidates
+    _semantic = 0.30  # tuned for HUMAN_REVIEW
 
     def _fn(extracted, index, top_k=5):  # noqa: ARG001
         real = _real_retrieve(extracted, index, top_k=top_k)
         overridden = []
         for i, rc in enumerate(real.candidates):
             if i == 0:
-                # Top candidate: semantic=0.72*0.95, no contradiction → final=0.72 (HUMAN_REVIEW)
+                # Top candidate: activity+location non-computable -> final=0.72 (HUMAN_REVIEW)
                 overridden.append(
                     RetrievedCandidate(
                         activity_id=rc.activity_id,
-                        activity_name=rc.activity_name,
-                        equipment_tag=rc.equipment_tag,
-                        location=rc.location,
-                        discipline=None,  # non-computable → final = semantic
-                        retrieval_score=_human_review_semantic,
+                        activity_name="Perform unrelated construction task",  # no synonym -> activity non-computable
+                        equipment_tag=rc.equipment_tag,  # matches report -> equipment=1.0
+                        location=None,  # non-computable
+                        discipline=None,  # non-computable
+                        retrieval_score=_semantic,
                         retrieval_signals=RetrievalSignals(
-                            semantic_score=_human_review_semantic,
+                            semantic_score=_semantic,
                             equipment_match=1.0,
-                            location_match=1.0,
-                            activity_match=1.0,
+                            location_match=0.0,
+                            activity_match=0.0,
                         ),
                     )
                 )
             else:
-                # Subsequent candidates: equipment mismatch with CONTRADICTION
-                # → final ≈ 0.468 (below 0.60), large gap to top candidate
+                # Subsequent candidates: equipment contradiction -> final=0.468 (UNMATCHED)
                 overridden.append(
                     RetrievedCandidate(
                         activity_id=rc.activity_id,
-                        activity_name=rc.activity_name,
+                        activity_name=rc.activity_name,  # has CAST synonym "pour" -> activity=1.0
                         equipment_tag="XX-999",  # contradiction
-                        location=rc.location,
-                        discipline=None,  # non-computable
-                        retrieval_score=_human_review_semantic,
+                        location=None,  # non-computable
+                        discipline=None,
+                        retrieval_score=_semantic,
                         retrieval_signals=RetrievalSignals(
-                            semantic_score=_human_review_semantic,
+                            semantic_score=_semantic,
                             equipment_match=0.0,  # contradiction
-                            location_match=1.0,
+                            location_match=0.0,
                             activity_match=1.0,
                         ),
                     )
