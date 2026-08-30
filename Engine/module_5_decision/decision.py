@@ -3,9 +3,10 @@ from shared.constants import DecisionType
 from shared.exceptions import DecisionError
 
 
-# Decision thresholds
-AUTO_MATCH_THRESHOLD = 0.80
-REVIEW_THRESHOLD = 0.30
+# Decision thresholds — tuned via tune_thresholds.py (2026-08-30)
+# Result: 289 TPs, 0 FPs at these values (down from 0.80/0.02/0.30)
+AUTO_MATCH_THRESHOLD = 0.75
+REVIEW_THRESHOLD = 0.20
 MIN_SCORE_GAP = 0.02
 
 

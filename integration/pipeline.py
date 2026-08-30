@@ -278,7 +278,7 @@ class Pipeline:
 
         # --- Module 4: Matching & Ranking ---
         try:
-            ranking = rank_candidates(extracted, candidates)
+            ranking = rank_candidates(extracted, candidates, report_date=raw_report.report_date)
             result.ranking = ranking
             result.stages.append(
                 StageResult(stage="matching_ranking", success=True, data=ranking)

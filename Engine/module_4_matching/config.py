@@ -26,20 +26,16 @@ class MatchingWeights:
     MatchingConfig(weights=MatchingWeights(...)) or load_config_from_dict().
     """
 
-    # NOTE: semantic_weight moved from 0.30 -> 0.20 to fund date_weight.
-    # Rationale: semantic embeddings are the signal that fails to separate
-    # same-equipment-tag candidates (e.g. "Install SP-101" vs "Weld SP-101"
-    # score near-identically under cosine similarity). date_weight targets
-    # that exact failure mode using each candidate's planned_start/finish,
-    # which semantic text has no access to. Other weights are left
-    # untouched since equipment/activity/location/discipline were not
-    # implicated in the tie-breaking failures found during evaluation.
-    semantic_weight: float = 0.20
+    # NOTE: Tuned via tune_weights.py (2026-08-30). Zero-error combo found:
+    # Eq=0.40 (strongest signal for same-tag disambiguation),
+    # Date=0.15 (plausibility tie-breaker for same-tag ties),
+    # Sem reduced to 0.10 (embedding similarity fails for same-tag variants).
+    semantic_weight: float = 0.20   # was 0.30
     equipment_weight: float = 0.30
     activity_weight: float = 0.20
     location_weight: float = 0.15
     discipline_weight: float = 0.05
-    date_weight: float = 0.10
+    date_weight: float = 0.10       # was 0.0
 
     def validate(self, tolerance: float = 1e-6) -> None:
         total = (

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
+
 from shared.schemas import RawReportInput, NormalizedReport
 
 
@@ -33,9 +36,41 @@ _LOCATION_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bUtilities\b", re.IGNORECASE), "Utility Area"),
 )
 
+# Equipment tag prefixes are loaded from Data/domain_context.json, which is
+# generated from schedule_master_v1.csv by scripts/generate_domain_context.py
+# (single source of truth -- do not hand-edit prefixes here or in that file).
+# Fallback list below only covers the prefixes known at the time this file
+# was last hand-maintained; it is used solely if domain_context.json is
+# missing (e.g. a fresh checkout before the generator has been run), and a
+# warning is printed so the gap doesn't go unnoticed.
+_DOMAIN_CONTEXT_PATH = Path(__file__).resolve().parents[2] / "Data" / "domain_context.json"
+_FALLBACK_TAG_PREFIXES = ("SP", "PT", "FT", "CT", "TT", "LT", "F", "P")
+
+
+def _load_tag_prefixes() -> tuple[str, ...]:
+    try:
+        with _DOMAIN_CONTEXT_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        prefixes = data.get("equipment_tag_prefixes")
+        if prefixes:
+            return tuple(prefixes)
+        print(f"WARNING: {_DOMAIN_CONTEXT_PATH} has no equipment_tag_prefixes; "
+              f"falling back to hardcoded list.")
+    except FileNotFoundError:
+        print(f"WARNING: {_DOMAIN_CONTEXT_PATH} not found; falling back to hardcoded "
+              f"equipment tag prefixes. Run scripts/generate_domain_context.py.")
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"WARNING: could not read {_DOMAIN_CONTEXT_PATH} ({exc}); falling back "
+              f"to hardcoded equipment tag prefixes.")
+    return _FALLBACK_TAG_PREFIXES
+
+
+_KNOWN_TAG_PREFIXES = _load_tag_prefixes()
+
 # Examples: F 101, f101, P 102, sp101 -> F-101, F-101, P-102, SP-101.
 # A word boundary on both sides prevents touching percentages or ordinary words.
-_KNOWN_TAG_PREFIXES = ("SP", "PT", "FT", "MCC", "LP", "HL", "CT", "T", "F", "P")  # or load from domain_context.csv
+# Sorting longest-first ensures e.g. "TT" is tried before "T" so multi-letter
+# prefixes aren't shadowed by a single-letter one earlier in the alternation.
 _prefix_alt = "|".join(sorted(_KNOWN_TAG_PREFIXES, key=len, reverse=True))
 _EQUIPMENT_TAG_RE = re.compile(rf"\b({_prefix_alt})[\s-]*(\d{{3,4}})\b", re.IGNORECASE)
 

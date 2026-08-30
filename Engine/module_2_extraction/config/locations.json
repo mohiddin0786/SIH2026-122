@@ -1,21 +1,8 @@
 {
   "locations": [
-    "Pump Area A",
-    "Pump Area B",
-    "Pipe Rack",
-    "Tank Farm",
-    "Substation",
-    "Control Room",
+    "Process Area C",
     "Utility Area",
-    "Workshop",
-    "Compressor Area",
-    "Boiler Area",
-    "Cooling Tower",
-    "Process Area A",
-    "Process Area B",
-    "Unit 1",
-    "Unit 2",
-    "Area A",
-    "Area B"
+    "Pump Area A",
+    "Pump Area B"
   ]
 }

@@ -43,29 +43,31 @@ def tune_weights():
     best_tp = -1
     best_weights = None
     
-    # Generate weight combos (must sum to ~1.0)
+    # Generate weight combos (must sum to 1.0)
     combos = [
-        (0.30, 0.30, 0.20, 0.15, 0.05), # Default
-        (0.10, 0.40, 0.30, 0.10, 0.10), # High Equipment/Activity
-        (0.20, 0.50, 0.10, 0.10, 0.10), # Massive Equipment bias
-        (0.40, 0.20, 0.10, 0.10, 0.20), # High Semantic/Discipline
-        (0.05, 0.45, 0.25, 0.20, 0.05), # Minimal semantic
+        (0.20, 0.30, 0.20, 0.15, 0.05, 0.10), # Current Default
+        (0.15, 0.35, 0.20, 0.10, 0.05, 0.15), # High Equipment/Date
+        (0.10, 0.40, 0.20, 0.10, 0.05, 0.15), # Massive Equipment bias
+        (0.25, 0.25, 0.15, 0.15, 0.10, 0.10), # High Semantic
+        (0.05, 0.40, 0.20, 0.20, 0.05, 0.10), # Minimal semantic
+        (0.20, 0.30, 0.20, 0.10, 0.05, 0.15), # Higher date
     ]
     
     # Fix the decision thresholds to the "Aggressive" option we found earlier
-    # to see how many auto matches we get with 0-5 errors.
+    # to see how many auto matches we get with 0-15 errors.
     AUTO_THRESH = 0.80
     GAP_THRESH = 0.02
     REV_THRESH = 0.30
     
-    for (sem, eq, act, loc, disc) in combos:
+    for (sem, eq, act, loc, disc, date_wt) in combos:
         config = MatchingConfig(
             weights=MatchingWeights(
                 semantic_weight=sem,
                 equipment_weight=eq,
                 activity_weight=act,
                 location_weight=loc,
-                discipline_weight=disc
+                discipline_weight=disc,
+                date_weight=date_wt
             )
         )
         
@@ -90,11 +92,11 @@ def tune_weights():
                 else:
                     fp += 1
                     
-        print(f"Weights (Sem:{sem:.2f}, Eq:{eq:.2f}, Act:{act:.2f}, Loc:{loc:.2f}, Disc:{disc:.2f}) -> Auto-Matches: {tp}, Errors: {fp}")
+        print(f"Weights (Sem:{sem:.2f}, Eq:{eq:.2f}, Act:{act:.2f}, Loc:{loc:.2f}, Disc:{disc:.2f}, Date:{date_wt:.2f}) -> Auto-Matches: {tp}, Errors: {fp}")
         
         if fp <= 15 and tp > best_tp:
             best_tp = tp
-            best_weights = (sem, eq, act, loc, disc)
+            best_weights = (sem, eq, act, loc, disc, date_wt)
             
     print(f"\nBest Weights found (under 15 errors): {best_weights} with {best_tp} Auto-Matches!")
 
