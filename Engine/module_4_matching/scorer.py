@@ -55,11 +55,17 @@ def combine_signals(
     activity: SignalResult,
     location: SignalResult,
     discipline: SignalResult,
+    date: SignalResult,
     config: MatchingConfig,
 ) -> Tuple[MatchingScores, List[str]]:
     """Renormalizes config.weights over computable signals, applies the
     contradiction penalty, and returns the explainable MatchingScores plus
-    a flat, de-duplicated explanation list."""
+    a flat, de-duplicated explanation list.
+
+    `date` (date_plausibility) is a soft tie-breaking signal, not a veto:
+    a confident early-side date contradiction contributes to the same
+    contradiction_penalty as equipment/location mismatches, but a
+    late/slipped date never does (schedule slippage is normal)."""
 
     weight_map = config.weights.as_dict()
     signal_map = {
@@ -68,6 +74,7 @@ def combine_signals(
         "activity_score": activity,
         "location_score": location,
         "discipline_score": discipline,
+        "date_score": date,
     }
 
     computable = {name: sig for name, sig in signal_map.items() if sig.computable}
@@ -75,7 +82,7 @@ def combine_signals(
     raw_weighted = sum(weight_map[name] * sig.score for name, sig in computable.items())
     base_score = raw_weighted / weight_sum if computable else 0.0
 
-    contradictions = [sig for sig in (equipment, location) if sig.contradiction]
+    contradictions = [sig for sig in (equipment, location, date) if sig.contradiction]
     contradiction_penalty = min(
         config.max_contradiction_penalty,
         len(contradictions) * config.contradiction_penalty_per_signal,
@@ -85,7 +92,7 @@ def combine_signals(
     final_score = max(0.0, min(1.0, round(final_score, 4)))
 
     explanation: List[str] = []
-    for sig in (equipment, location, activity, semantic, discipline):
+    for sig in (equipment, location, activity, semantic, discipline, date):
         explanation.extend(sig.explanation)
     if contradiction_penalty > 0:
         explanation.append(
@@ -98,6 +105,7 @@ def combine_signals(
         location_score=round(location.score, 4),
         activity_score=round(activity.score, 4),
         discipline_score=round(discipline.score, 4) if discipline.computable else None,
+        date_score=round(date.score, 4) if date.computable else None,
         contradiction_penalty=round(contradiction_penalty, 4),
         final_score=final_score,
     )

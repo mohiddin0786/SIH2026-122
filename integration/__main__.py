@@ -55,10 +55,10 @@ def _demo() -> None:
             print(f"{key}: {value}")
 
     if result.failed():
-        print("\n⚠ Pipeline completed with errors.")
+        print("\n[WARN] Pipeline completed with errors.")
         sys.exit(1)
     else:
-        print("\n✓ Pipeline completed successfully.")
+        print("\n[OK] Pipeline completed successfully.")
 
 
 def main() -> None:

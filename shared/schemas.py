@@ -162,6 +162,8 @@ class RetrievedCandidate(BaseModel):
     location: Optional[str] = None
     discipline: Optional[str] = None
     wbs: Optional[str] = None
+    planned_start: Optional[str] = Field(default=None, description="ISO date from schedule_master, e.g. 2026-08-28. Never mutated.")
+    planned_finish: Optional[str] = Field(default=None, description="ISO date from schedule_master, e.g. 2026-09-10. Never mutated.")
     retrieval_score: float = UNIT_SCORE_FIELD
     retrieval_signals: RetrievalSignals = Field(default_factory=RetrievalSignals)
 
@@ -195,6 +197,7 @@ class MatchingScores(BaseModel):
     location_score: float = UNIT_SCORE_FIELD
     activity_score: float = UNIT_SCORE_FIELD
     discipline_score: Optional[float] = OPTIONAL_UNIT_SCORE_FIELD
+    date_score: Optional[float] = OPTIONAL_UNIT_SCORE_FIELD
     contradiction_penalty: float = Field(..., ge=0.0, le=1.0)
     final_score: float = UNIT_SCORE_FIELD
 

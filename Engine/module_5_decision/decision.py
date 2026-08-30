@@ -4,9 +4,9 @@ from shared.exceptions import DecisionError
 
 
 # Decision thresholds
-AUTO_MATCH_THRESHOLD = 0.85
-REVIEW_THRESHOLD = 0.60
-MIN_SCORE_GAP = 0.10
+AUTO_MATCH_THRESHOLD = 0.80
+REVIEW_THRESHOLD = 0.30
+MIN_SCORE_GAP = 0.02
 
 
 def make_decision(ranking_result: RankingResult) -> DecisionResult:

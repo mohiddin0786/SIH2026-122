@@ -184,6 +184,6 @@ class ExecutionStateRepository:
         return [r.to_execution_state() for r in self._cache.values()]
 
     def clear_cache(self) -> None:
-        """Clear in-memory cache (useful for testing)."""
+        """Clear in-memory cache and allow reloading from file (useful for testing)."""
         self._cache.clear()
         self._loaded = False

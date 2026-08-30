@@ -26,11 +26,20 @@ class MatchingWeights:
     MatchingConfig(weights=MatchingWeights(...)) or load_config_from_dict().
     """
 
-    semantic_weight: float = 0.30
+    # NOTE: semantic_weight moved from 0.30 -> 0.20 to fund date_weight.
+    # Rationale: semantic embeddings are the signal that fails to separate
+    # same-equipment-tag candidates (e.g. "Install SP-101" vs "Weld SP-101"
+    # score near-identically under cosine similarity). date_weight targets
+    # that exact failure mode using each candidate's planned_start/finish,
+    # which semantic text has no access to. Other weights are left
+    # untouched since equipment/activity/location/discipline were not
+    # implicated in the tie-breaking failures found during evaluation.
+    semantic_weight: float = 0.20
     equipment_weight: float = 0.30
     activity_weight: float = 0.20
     location_weight: float = 0.15
     discipline_weight: float = 0.05
+    date_weight: float = 0.10
 
     def validate(self, tolerance: float = 1e-6) -> None:
         total = (
@@ -39,6 +48,7 @@ class MatchingWeights:
             + self.activity_weight
             + self.location_weight
             + self.discipline_weight
+            + self.date_weight
         )
         if any(
             w < 0.0
@@ -48,13 +58,14 @@ class MatchingWeights:
                 self.activity_weight,
                 self.location_weight,
                 self.discipline_weight,
+                self.date_weight,
             )
         ):
             raise ValueError("MatchingWeights: individual weights must be >= 0.0")
         if abs(total - 1.0) > tolerance:
             raise ValueError(
                 f"MatchingWeights must sum to 1.0 (got {total:.6f}). "
-                "Adjust semantic/equipment/activity/location/discipline weights."
+                "Adjust semantic/equipment/activity/location/discipline/date weights."
             )
 
     def as_dict(self) -> Dict[str, float]:
@@ -64,6 +75,7 @@ class MatchingWeights:
             "activity_score": self.activity_weight,
             "location_score": self.location_weight,
             "discipline_score": self.discipline_weight,
+            "date_score": self.date_weight,
         }
 
 
@@ -71,8 +83,6 @@ class MatchingWeights:
 # Default activity-type -> text-synonym table (module 2's ActivityType enum
 # values, mapped to words we'd expect to see in a schedule activity_name).
 # Configurable / overridable — not meant to be exhaustive out of the box.
-# ---------------------------------------------------------------------------
-
 DEFAULT_ACTIVITY_SYNONYMS: Dict[str, List[str]] = {
     "INSTALL": ["install", "installation", "erect", "erection", "mount", "fit"],
     "WELD": ["weld", "welding"],
@@ -90,9 +100,6 @@ DEFAULT_ACTIVITY_SYNONYMS: Dict[str, List[str]] = {
     "CONNECT_MOTOR": ["connect motor", "motor connection", "motor hookup"],
 }
 
-# Optional, coarse activity-type -> expected discipline mapping. Used only
-# to produce discipline_score; left conservative (many types unmapped ->
-# discipline_score stays None for those, which the schema explicitly allows).
 DEFAULT_DISCIPLINE_MAP: Dict[str, str] = {
     "WELD": "Piping",
     "FIT_UP": "Piping",
@@ -158,6 +165,7 @@ def load_config_from_dict(data: Dict) -> MatchingConfig:
         activity_weight=weights_data.get("activity_weight", MatchingWeights.activity_weight),
         location_weight=weights_data.get("location_weight", MatchingWeights.location_weight),
         discipline_weight=weights_data.get("discipline_weight", MatchingWeights.discipline_weight),
+        date_weight=weights_data.get("date_weight", MatchingWeights.date_weight),
     )
     kwargs = {}
     if "fuzzy_match_floor" in data:

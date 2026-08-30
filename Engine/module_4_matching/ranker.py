@@ -26,6 +26,7 @@ from shared.schemas import CandidateRetrievalResult, ExtractedReport, RankedCand
 
 from .activity_matcher import score_activity
 from .config import MatchingConfig
+from .date_matcher import score_date_plausibility
 from .equipment_matcher import score_equipment
 from .location_matcher import score_location
 from .scorer import combine_signals, score_discipline
@@ -38,8 +39,18 @@ def rank_candidates(
     report: ExtractedReport,
     candidates: CandidateRetrievalResult,
     config: Optional[MatchingConfig] = None,
+    report_date: Optional[str] = None,
 ) -> RankingResult:
     """Scores and ranks every candidate in `candidates` against `report`.
+
+    Args:
+        report_date: The original field report's report_date (ISO string,
+            e.g. from RawReportInput.report_date). Optional — passed
+            separately rather than added to ExtractedReport, since Module 2
+            does not otherwise carry report metadata. When None, the
+            date_plausibility signal is simply not computable for every
+            candidate and combine_signals renormalizes around it, same as
+            any other missing signal.
 
     Raises MatchingError (report_id preserved) on structurally invalid
     input — e.g. report_id mismatch between the two inputs. An empty
@@ -76,8 +87,9 @@ def rank_candidates(
         )
         location = score_location(report.locations, candidate.location, config.fuzzy_match_floor)
         discipline = score_discipline(report.activity_type, candidate.discipline, config.discipline_map)
+        date = score_date_plausibility(report_date, candidate.planned_start, candidate.planned_finish)
 
-        scores, explanation = combine_signals(semantic, equipment, activity, location, discipline, config)
+        scores, explanation = combine_signals(semantic, equipment, activity, location, discipline, date, config)
         scored.append((scores.final_score, candidate.activity_id, candidate, scores, explanation))
 
     # Sort by final_score descending; break ties deterministically by

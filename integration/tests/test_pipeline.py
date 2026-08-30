@@ -34,6 +34,7 @@ from shared.schemas import (
     ExtractedReport,
 )
 from integration.pipeline import Pipeline, process_report, process_batch, _load_schedule_index
+from Engine.module_6_schedule_update.repository import ExecutionStateRepository
 
 
 # ---------------------------------------------------------------------------
@@ -78,15 +79,16 @@ def _make_ranking_result(
     return RankingResult(report_id=report_id, ranked_candidates=candidates)
 
 
-def _make_pipeline(retrieve_fn=None) -> Pipeline:
+def _make_pipeline(retrieve_fn=None, repository=None) -> Pipeline:
     """Create a Pipeline with a fresh schedule index.
 
     Args:
         retrieve_fn: Optional callable to inject for retrieve_candidates,
             enabling deterministic tests.
+        repository: Optional ExecutionStateRepository to inject for testing.
     """
     index = _load_schedule_index()
-    return Pipeline(schedule_index=index, retrieve_fn=retrieve_fn)
+    return Pipeline(schedule_index=index, retrieve_fn=retrieve_fn, repository=repository)
 
 
 def _make_candidate_retrieved(
@@ -195,19 +197,21 @@ def _make_human_review_mock(schedule_index) -> callable:
     to the second candidate (final ≈ 0.468).
 
     discipline=None makes the discipline signal non-computable, so only
-    4 signals contribute (denominator=0.95), and the weights renormalize:
-        final = semantic * (0.30+0.30+0.20+0.15) / 0.95 = semantic.
-    Setting semantic=0.72 → final=0.72 → HUMAN_REVIEW ✓
+    4 signals contribute (denominator=0.95), and rank_candidates
+    renormalizes: final = (0.95 * semantic_score) / 0.95 = semantic_score.
+    Setting semantic_score=0.72*0.95 → final=0.72 → HUMAN_REVIEW ✓
     Gap to second candidate (0.468) = 0.252 >= 0.10 → satisfies MIN_SCORE_GAP ✓
     """
     from Engine.module_3_candidate.retriever import retrieve_candidates as _real_retrieve
+
+    _human_review_semantic = 0.72 * 0.95  # renormalizes to 0.72 in rank_candidates
 
     def _fn(extracted, index, top_k=5):  # noqa: ARG001
         real = _real_retrieve(extracted, index, top_k=top_k)
         overridden = []
         for i, rc in enumerate(real.candidates):
             if i == 0:
-                # Top candidate: semantic=0.72, no contradiction → final=0.72 (HUMAN_REVIEW)
+                # Top candidate: semantic=0.72*0.95, no contradiction → final=0.72 (HUMAN_REVIEW)
                 overridden.append(
                     RetrievedCandidate(
                         activity_id=rc.activity_id,
@@ -215,9 +219,9 @@ def _make_human_review_mock(schedule_index) -> callable:
                         equipment_tag=rc.equipment_tag,
                         location=rc.location,
                         discipline=None,  # non-computable → final = semantic
-                        retrieval_score=0.72,
+                        retrieval_score=_human_review_semantic,
                         retrieval_signals=RetrievalSignals(
-                            semantic_score=0.72,
+                            semantic_score=_human_review_semantic,
                             equipment_match=1.0,
                             location_match=1.0,
                             activity_match=1.0,
@@ -234,9 +238,9 @@ def _make_human_review_mock(schedule_index) -> callable:
                         equipment_tag="XX-999",  # contradiction
                         location=rc.location,
                         discipline=None,  # non-computable
-                        retrieval_score=0.72,
+                        retrieval_score=_human_review_semantic,
                         retrieval_signals=RetrievalSignals(
-                            semantic_score=0.72,
+                            semantic_score=_human_review_semantic,
                             equipment_match=0.0,  # contradiction
                             location_match=1.0,
                             activity_match=1.0,
@@ -263,15 +267,18 @@ def _mock_retrieve_with_scores(
     the exact final_score when rank_candidates recomputes them.
 
     Since rank_candidates recomputes scores via weighted combination,
-    and the discipline signal is non-computable (discipline_score=None),
+    and discipline may be non-computable (discipline=None → discipline_score=None),
     the effective weight denominator is:
         semantic + equipment + activity + location = 0.30 + 0.30 + 0.20 + 0.15 = 0.95
-    With all four signals = final_score and contradiction_penalty=0.0:
+    With all four signals = score and contradiction_penalty=0.0:
         final_score = (0.95 * score) / 0.95 = score  ✓
-    But equipment/activity/location must also match exactly (score=1.0),
-    and semantic_score must be set to the desired final_score directly
-    (it is taken from retrieval_signals.semantic_score, not recomputed).
+    To compensate for rank_candidates renormalization when discipline is
+    non-computable, semantic_score = final_score * 0.95.
+    When discipline is computable (denominator=1.0), semantic_score = final_score.
+    Equipment/activity/location must also match exactly (score=1.0).
     """
+    # Use the full 0.95 denominator weight when discipline is non-computable
+    _semantic = final_score * 0.95 if discipline is None else final_score
     return RetrievedCandidate(
         activity_id=activity_id,
         activity_name=activity_name,
@@ -280,7 +287,7 @@ def _mock_retrieve_with_scores(
         discipline=discipline,
         retrieval_score=final_score,
         retrieval_signals=RetrievalSignals(
-            semantic_score=final_score,
+            semantic_score=_semantic,
             equipment_match=1.0,
             location_match=1.0,
             activity_match=1.0,
@@ -308,13 +315,20 @@ def _mock_retrieve(candidates: list[RetrievedCandidate]) -> callable:
 @pytest.fixture(autouse=True)
 def reset_execution_state():
     """Clear Data/execution_state.csv before each test to prevent state
-    regression errors from stale execution state left by prior test runs."""
+    regression errors from stale execution state left by prior test runs.
+
+    Also clears the in-memory repository cache so the pipeline reads the
+    freshly cleared file on its next access.
+    """
     exec_path = Path("Data/execution_state.csv")
     exec_path.write_text(
         "activity_id,actual_status,actual_progress,last_report_id,last_update_timestamp\n",
         encoding="utf-8",
     )
+    repo = ExecutionStateRepository()
+    repo.clear_cache()
     yield
+    repo.clear_cache()
 
 
 # ===========================================================================

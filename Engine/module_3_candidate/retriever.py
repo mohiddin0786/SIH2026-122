@@ -301,6 +301,8 @@ def retrieve_candidates(
                 location=_clean(row.location),
                 discipline=_clean(row.discipline),
                 wbs=_clean(row.wbs),
+                planned_start=_clean(row.planned_start),
+                planned_finish=_clean(row.planned_finish),
                 retrieval_score=final_score,
                 retrieval_signals=RetrievalSignals(**signals),
             )

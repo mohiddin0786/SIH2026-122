@@ -168,6 +168,8 @@ class Pipeline:
         schedule_master_path: Path to schedule_master_v1.csv (used if no index given).
         retrieve_fn: Optional callable(retrieved_report, index, top_k) -> CandidateRetrievalResult.
             Defaults to ``retrieve_candidates``. Inject a mock for deterministic tests.
+        repository: Optional ExecutionStateRepository to inject for testing.
+            If None, a default repository is created by ScheduleUpdater.
     """
 
     def __init__(
@@ -175,6 +177,7 @@ class Pipeline:
         schedule_index: Optional[ScheduleIndex] = None,
         schedule_master_path: str = "Data/schedule_master_v1.csv",
         retrieve_fn=None,
+        repository=None,
     ) -> None:
         if schedule_index is not None:
             self.schedule_index = schedule_index
@@ -186,6 +189,7 @@ class Pipeline:
         self._retrieve_fn = retrieve_fn if retrieve_fn is not None else retrieve_candidates
         # Pre-cache the schedule_master DataFrame so updater never reads CSV
         self._schedule_master_df: Optional[pd.DataFrame] = None
+        self._repository = repository
 
     def _get_schedule_master_df(self) -> pd.DataFrame:
         if self._schedule_master_df is None:
@@ -317,6 +321,7 @@ class Pipeline:
             updater = ScheduleUpdater(
                 config=self.config,
                 schedule_master_df=self._get_schedule_master_df(),
+                repository=self._repository,
             )
             update = updater.update_schedule(decision, extracted)
             result.update = update
