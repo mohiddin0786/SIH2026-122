@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -37,6 +37,7 @@ from integration.pipeline import Pipeline
 from Engine.module_6_schedule_update.repository import ExecutionStateRepository
 from Engine.module_6_schedule_update.config import ScheduleUpdateConfig
 
+from . import batch_parser
 from .store import store
 
 logging.basicConfig(level=logging.INFO)
@@ -231,6 +232,16 @@ class SubmitReportBody(BaseModel):
     text: str
 
 
+class BatchItem(BaseModel):
+    text: str
+    sourceType: Optional[str] = None
+    reportDate: Optional[str] = None
+
+
+class SubmitBatchBody(BaseModel):
+    items: List[BatchItem]
+
+
 class ConfirmBody(BaseModel):
     activityId: str
 
@@ -257,36 +268,34 @@ def get_report(report_id: str):
     return envelope(record)
 
 
-@app.post("/api/projects/{project_id}/reports")
-def submit_report(project_id: str, body: SubmitReportBody):
-    if project_id != PROJECT_ID:
-        fail(404, f"Project {project_id} not found")
-    if not body.text or not body.text.strip():
-        fail(400, "Report text must not be empty")
+def _process_single_report(project_id: str, text: str, source_type: str = "frontend",
+                            report_date: Optional[str] = None) -> dict:
+    if not text or not text.strip():
+        return {"status": "ERROR", "error": "Report text must not be empty"}
 
     report_id = store.new_report_id()
     raw_report = RawReportInput(
         report_id=report_id,
-        report_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        source_type="frontend",
-        raw_text=body.text,
+        report_date=report_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        source_type=source_type,
+        raw_text=text,
     )
 
     result = _pipeline().process_report(raw_report)
 
     if result.failed():
         failed = result.failed_stage()
-        logger.warning("Pipeline failed for %s at %s: %s", report_id, failed.stage if failed else "?", failed.error if failed else "?")
-        store.create_report(report_id, project_id, body.text, status="UNMATCHED")
-        return envelope({"status": "UNMATCHED", "reportId": report_id})
+        logger.warning("Pipeline failed for %s at %s: %s", report_id,
+                        failed.stage if failed else "?", failed.error if failed else "?")
+        store.create_report(report_id, project_id, text, status="UNMATCHED")
+        return {"status": "UNMATCHED", "reportId": report_id}
 
     decision = result.decision
-    assert decision is not None  # pipeline didn't fail, so decision stage ran
+    assert decision is not None
 
     if decision.decision == DecisionType.AUTO_MATCH:
         activity_id = decision.selected_activity_id
         update = result.update
-
         prev_state = update.previous_execution_state if update else None
         new_state = update.new_execution_state if update else None
         prev_status = _STATUS_MAP.get(prev_state.actual_status.value, "NOT_STARTED") if prev_state else "NOT_STARTED"
@@ -298,28 +307,87 @@ def submit_report(project_id: str, body: SubmitReportBody):
         update_record = store.add_update(
             activity_id, report_id, prev_status, new_status, prev_progress, new_progress, message
         )
-
-        store.create_report(report_id, project_id, body.text, status="SUCCESS", matched_activity_id=activity_id)
-        return envelope({
+        store.create_report(report_id, project_id, text, status="SUCCESS", matched_activity_id=activity_id)
+        return {
             "status": "SUCCESS",
             "reportId": report_id,
             "activity": _get_activity_view(activity_id),
             "update": update_record,
-        })
+        }
 
     if decision.decision == DecisionType.HUMAN_REVIEW:
         candidates = [
             {"activityId": c.activity_id, "activityName": c.activity_name}
             for c in (result.ranking.ranked_candidates[:3] if result.ranking else [])
         ]
-        store.create_report(
-            report_id, project_id, body.text, status="NEEDS_REVIEW", candidate_activities=candidates
-        )
-        return envelope({"status": "NEEDS_REVIEW", "reportId": report_id, "candidates": candidates})
+        store.create_report(report_id, project_id, text, status="NEEDS_REVIEW", candidate_activities=candidates)
+        return {"status": "NEEDS_REVIEW", "reportId": report_id, "candidates": candidates}
 
-    # UNMATCHED
-    store.create_report(report_id, project_id, body.text, status="UNMATCHED")
-    return envelope({"status": "UNMATCHED", "reportId": report_id})
+    store.create_report(report_id, project_id, text, status="UNMATCHED")
+    return {"status": "UNMATCHED", "reportId": report_id}
+
+
+@app.post("/api/projects/{project_id}/reports")
+def submit_report(project_id: str, body: SubmitReportBody):
+    if project_id != PROJECT_ID:
+        fail(404, f"Project {project_id} not found")
+    result = _process_single_report(project_id, body.text, source_type="frontend")
+    if result.get("status") == "ERROR":
+        fail(400, result["error"])
+    return envelope(result)
+
+
+@app.post("/api/projects/{project_id}/reports/batch")
+def submit_batch(project_id: str, body: SubmitBatchBody):
+    if project_id != PROJECT_ID:
+        fail(404, f"Project {project_id} not found")
+    if not body.items:
+        fail(400, "No items provided")
+
+    results = []
+    for item in body.items:
+        try:
+            r = _process_single_report(
+                project_id, item.text,
+                source_type=item.sourceType or "batch",
+                report_date=item.reportDate,
+            )
+        except Exception as e:
+            logger.exception("Batch item failed")
+            r = {"status": "ERROR", "error": str(e)}
+        results.append(r)
+
+    summary = {
+        "total": len(results),
+        "success": sum(1 for r in results if r.get("status") == "SUCCESS"),
+        "needsReview": sum(1 for r in results if r.get("status") == "NEEDS_REVIEW"),
+        "unmatched": sum(1 for r in results if r.get("status") == "UNMATCHED"),
+        "errors": sum(1 for r in results if r.get("status") == "ERROR"),
+    }
+    return envelope({"results": results, "summary": summary})
+
+
+@app.post("/api/projects/{project_id}/reports/parse")
+async def parse_batch_upload(
+    project_id: str,
+    file: Optional[UploadFile] = File(None),
+    text: Optional[str] = Form(None),
+):
+    if project_id != PROJECT_ID:
+        fail(404, f"Project {project_id} not found")
+    try:
+        if file is not None:
+            contents = await file.read()
+            parsed = batch_parser.parse_upload(file.filename, contents)
+        elif text is not None:
+            parsed = batch_parser.parse_raw_text(text)
+        else:
+            fail(400, "Provide either a file or text")
+    except ValueError as e:
+        fail(400, str(e))
+    except RuntimeError as e:
+        fail(500, str(e))
+    return envelope({"items": parsed, "count": len(parsed)})
 
 
 @app.post("/api/reports/{report_id}/confirm")
