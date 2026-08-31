@@ -5,13 +5,19 @@ import { reportService } from '../../services/reportService';
 import { ReportForm } from '../../components/reports/ReportForm';
 import { ReportResult } from '../../components/reports/ReportResult';
 import { ReportCard } from '../../components/reports/ReportCard';
-import { SubmitReportResponse } from '../../types/report';
+import { BatchReportForm } from '../../components/reports/BatchReportForm';
+import { BatchReportResult } from '../../components/reports/BatchReportResult';
+import { SubmitReportResponse, BatchSubmitResponse } from '../../types/report';
 import { SkeletonCard } from '../../components/ui/LoadingSkeleton';
+
+type EntryMode = 'single' | 'batch';
 
 export default function Reports() {
   const projectId = useProjectId();
   const queryClient = useQueryClient();
+  const [entryMode, setEntryMode] = useState<EntryMode>('single');
   const [submissionResult, setSubmissionResult] = useState<SubmitReportResponse | null>(null);
+  const [batchResult, setBatchResult] = useState<BatchSubmitResponse | null>(null);
 
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['reports', projectId],
@@ -20,12 +26,21 @@ export default function Reports() {
     refetchInterval: 60000,
   });
 
-  const handleSuccess = (result: SubmitReportResponse) => {
-    setSubmissionResult(result);
+  const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['reports'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     queryClient.invalidateQueries({ queryKey: ['attention'] });
     queryClient.invalidateQueries({ queryKey: ['activities'] });
+  };
+
+  const handleSuccess = (result: SubmitReportResponse) => {
+    setSubmissionResult(result);
+    invalidateAll();
+  };
+
+  const handleBatchSuccess = (result: BatchSubmitResponse) => {
+    setBatchResult(result);
+    invalidateAll();
   };
 
   const handleConfirm = async (activityId: string) => {
@@ -33,10 +48,7 @@ export default function Reports() {
     try {
       const newResult = await reportService.confirmActivity(submissionResult.reportId, activityId);
       setSubmissionResult(newResult);
-      queryClient.invalidateQueries({ queryKey: ['reports'] });
-      queryClient.invalidateQueries({ queryKey: ['attention'] });
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      invalidateAll();
     } catch (err) { console.error(err); }
   };
 
@@ -49,6 +61,14 @@ export default function Reports() {
       queryClient.invalidateQueries({ queryKey: ['attention'] });
     } catch (err) { console.error(err); }
   };
+
+  const handleModeChange = (mode: EntryMode) => {
+    setEntryMode(mode);
+    setSubmissionResult(null);
+    setBatchResult(null);
+  };
+
+  const activeResult = entryMode === 'single' ? submissionResult : batchResult;
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
@@ -68,17 +88,40 @@ export default function Reports() {
         </h1>
       </header>
 
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => handleModeChange('single')}
+          className={entryMode === 'single' ? 'glass-button-teal' : 'glass-button-ghost'}
+          style={{ fontSize: '11px', padding: '8px 14px' }}
+        >
+          SINGLE REPORT
+        </button>
+        <button
+          onClick={() => handleModeChange('batch')}
+          className={entryMode === 'batch' ? 'glass-button-teal' : 'glass-button-ghost'}
+          style={{ fontSize: '11px', padding: '8px 14px' }}
+        >
+          BULK UPLOAD
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-5" style={{ minHeight: '460px' }}>
-          {submissionResult ? (
-            <ReportResult
-              result={submissionResult}
-              onConfirm={handleConfirm}
-              onReject={handleReject}
-              onReset={() => setSubmissionResult(null)}
-            />
+          {entryMode === 'single' ? (
+            submissionResult ? (
+              <ReportResult
+                result={submissionResult}
+                onConfirm={handleConfirm}
+                onReject={handleReject}
+                onReset={() => setSubmissionResult(null)}
+              />
+            ) : (
+              <ReportForm projectId={projectId!} onSuccess={handleSuccess} />
+            )
+          ) : batchResult ? (
+            <BatchReportResult result={batchResult} onReset={() => setBatchResult(null)} />
           ) : (
-            <ReportForm projectId={projectId!} onSuccess={handleSuccess} />
+            <BatchReportForm projectId={projectId!} onSuccess={handleBatchSuccess} />
           )}
         </div>
         <div className="lg:col-span-7">

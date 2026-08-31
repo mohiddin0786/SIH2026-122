@@ -1,5 +1,11 @@
 import { api } from './api';
-import { FieldReport, SubmitReportResponse } from '../types/report';
+import {
+  BatchItem,
+  BatchSubmitResponse,
+  FieldReport,
+  ParsedUploadResponse,
+  SubmitReportResponse,
+} from '../types/report';
 
 export const reportService = {
   getReports: (projectId: string) =>
@@ -8,6 +14,18 @@ export const reportService = {
     api.get<FieldReport>(`/reports/${reportId}`),
   submitReport: (projectId: string, text: string) =>
     api.post<SubmitReportResponse>(`/projects/${projectId}/reports`, { text }),
+  submitBatch: (projectId: string, items: BatchItem[]) =>
+    api.post<BatchSubmitResponse>(`/projects/${projectId}/reports/batch`, { items }),
+  parseUpload: (projectId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.postForm<ParsedUploadResponse>(`/projects/${projectId}/reports/parse`, formData);
+  },
+  parseText: (projectId: string, text: string) => {
+    const formData = new FormData();
+    formData.append('text', text);
+    return api.postForm<ParsedUploadResponse>(`/projects/${projectId}/reports/parse`, formData);
+  },
   getAttentionReports: (projectId: string) =>
     api.get<FieldReport[]>(`/projects/${projectId}/attention`),
   confirmActivity: (reportId: string, activityId: string) =>
