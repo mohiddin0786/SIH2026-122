@@ -34,8 +34,18 @@ THREE INDEPENDENT CHECKS:
 
 import csv
 
+
 from shared.schemas import RawReportInput
 from integration.pipeline import Pipeline
+from Engine.module_6_schedule_update.config import ScheduleUpdateConfig
+from Engine.module_6_schedule_update.repository import ExecutionStateRepository
+
+# Same reasoning as run_benchmark.py — keep diagnostic runs out of the live
+# execution_state.csv that python_backend reads for the demo.
+_DIAG_CONFIG = ScheduleUpdateConfig(execution_state_path="Data/execution_state_benchmark.csv")
+_DIAG_REPOSITORY = ExecutionStateRepository(_DIAG_CONFIG)
+
+
 
 
 def main():

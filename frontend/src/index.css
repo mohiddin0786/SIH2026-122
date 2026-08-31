@@ -1,0 +1,538 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   GLOBAL — LIGHT MODE DEFAULTS
+   ============================================================ */
+
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: #8FBFBE;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #0F1A14;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: color 0.25s ease;
+}
+
+/* ============================================================
+   BACKGROUND — EXACT CONSTRUCTION PHOTO
+   Must remain: BRIGHT · VISIBLE · COLORFUL · NATURAL
+   ============================================================ */
+
+.bg-construction {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: url('/bg-construction.jpg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  /* No blur at all — photo stays crisp and cinematic */
+  filter: none;
+  transform: scale(1.0);
+  transition: filter 0.4s ease;
+}
+
+/* LIGHT MODE overlay — barely anything, just a whisper of warm cream */
+.bg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(248, 252, 245, 0.05);
+  transition: background 0.4s ease;
+}
+
+/* DARK MODE overlay — warm dark wash so cream glass glows */
+html.dark .bg-overlay {
+  background: rgba(6, 10, 8, 0.58);
+}
+
+/* ============================================================
+   GLASS SYSTEM — LIGHT MODE
+   Formula: BRIGHT PHOTO → TRANSLUCENT CREAM/WHITE FROST → DARK TEXT
+   ============================================================ */
+
+/* --- Sidebar --- */
+.glass-sidebar {
+  background: rgba(248, 252, 246, 0.24);
+  backdrop-filter: blur(22px) saturate(1.15);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  border-right: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow: 4px 0 32px rgba(8, 20, 14, 0.08);
+  transition: background 0.3s ease;
+}
+
+html.dark .glass-sidebar {
+  background: rgba(8, 14, 10, 0.74);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 4px 0 40px rgba(0, 0, 0, 0.30);
+}
+
+/* --- Major panels --- */
+.glass-panel {
+  background: rgba(250, 254, 250, 0.18);
+  backdrop-filter: blur(20px) saturate(1.12);
+  -webkit-backdrop-filter: blur(20px) saturate(1.12);
+  border: 1px solid rgba(255, 255, 255, 0.40);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 32px rgba(8, 20, 14, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.52);
+  transition: background 0.3s ease;
+}
+
+html.dark .glass-panel {
+  background: rgba(10, 18, 12, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* --- Cards --- */
+.glass-card {
+  background: rgba(248, 252, 248, 0.16);
+  backdrop-filter: blur(16px) saturate(1.10);
+  -webkit-backdrop-filter: blur(16px) saturate(1.10);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 10px;
+  box-shadow:
+    0 4px 20px rgba(8, 20, 14, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.18s ease;
+}
+
+.glass-card:hover {
+  background: rgba(250, 254, 250, 0.28);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 8px 30px rgba(8, 20, 14, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.60);
+  transform: translateY(-2px);
+}
+
+html.dark .glass-card {
+  background: rgba(10, 18, 12, 0.54);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.20), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+html.dark .glass-card:hover {
+  background: rgba(14, 24, 16, 0.70);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* --- Inputs --- */
+.glass-input {
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(180, 200, 185, 0.38);
+  border-radius: 8px;
+  color: #0F1A14;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.glass-input::placeholder { color: #6A8070; }
+
+.glass-input:focus {
+  outline: none;
+  border-color: rgba(22, 121, 110, 0.52);
+  box-shadow: 0 0 0 3px rgba(22, 121, 110, 0.09);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+html.dark .glass-input {
+  background: rgba(15, 25, 18, 0.65);
+  border-color: rgba(60, 100, 75, 0.35);
+  color: #D4EAE0;
+}
+
+html.dark .glass-input::placeholder { color: #4A6A56; }
+
+html.dark .glass-input:focus {
+  background: rgba(18, 30, 22, 0.80);
+  border-color: rgba(42, 140, 120, 0.55);
+  box-shadow: 0 0 0 3px rgba(42, 140, 120, 0.10);
+}
+
+/* --- Modals --- */
+.glass-modal {
+  background: rgba(248, 252, 248, 0.90);
+  backdrop-filter: blur(32px) saturate(1.25);
+  -webkit-backdrop-filter: blur(32px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 16px;
+  box-shadow:
+    0 24px 72px rgba(8, 20, 14, 0.16),
+    0 6px 20px rgba(8, 20, 14, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+html.dark .glass-modal {
+  background: rgba(10, 18, 12, 0.90);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 24px 72px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.glass-button-primary {
+  background: #0F1A14;
+  border: 1px solid #0F1A14;
+  color: #F0F7F2;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+.glass-button-primary:hover:not(:disabled) {
+  background: #1C2E22;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 18px rgba(8, 20, 14, 0.22);
+}
+.glass-button-primary:disabled { opacity: 0.38; cursor: not-allowed; }
+
+html.dark .glass-button-primary {
+  background: #E8F4EC;
+  border-color: #E8F4EC;
+  color: #0A1410;
+}
+html.dark .glass-button-primary:hover:not(:disabled) {
+  background: #fff;
+}
+
+.glass-button-teal {
+  background: rgba(22, 121, 110, 0.10);
+  border: 1px solid rgba(22, 121, 110, 0.30);
+  color: #16796E;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+.glass-button-teal:hover:not(:disabled) {
+  background: rgba(22, 121, 110, 0.18);
+  border-color: rgba(22, 121, 110, 0.48);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(22, 121, 110, 0.16);
+}
+.glass-button-teal:disabled { opacity: 0.38; cursor: not-allowed; }
+
+html.dark .glass-button-teal {
+  background: rgba(42, 160, 140, 0.14);
+  border-color: rgba(42, 160, 140, 0.35);
+  color: #3ABFAA;
+}
+
+.glass-button-secondary {
+  background: rgba(255, 255, 255, 0.40);
+  border: 1px solid rgba(160, 190, 170, 0.38);
+  color: #1A2E22;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+.glass-button-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.60);
+  border-color: rgba(160, 190, 170, 0.55);
+}
+
+html.dark .glass-button-secondary {
+  background: rgba(30, 45, 35, 0.65);
+  border-color: rgba(60, 100, 75, 0.35);
+  color: #C0DED0;
+}
+
+.glass-button-ghost {
+  background: transparent;
+  border: none;
+  color: #16796E;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+.glass-button-ghost:hover { color: #0F5E54; }
+
+html.dark .glass-button-ghost { color: #3ABFAA; }
+html.dark .glass-button-ghost:hover { color: #5AD0BC; }
+
+/* ============================================================
+   NAVIGATION — SIDEBAR NAV ITEMS
+   ============================================================ */
+
+.glass-nav-item {
+  color: #162A1E;
+  border-left: 2px solid transparent;
+  border-radius: 0 8px 8px 0;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+}
+.glass-nav-item:hover {
+  background: rgba(255, 255, 255, 0.35);
+  color: #0A1A10;
+}
+.glass-nav-item.active {
+  color: #16796E;
+  background: rgba(22, 121, 110, 0.10);
+  border-left-color: #16796E;
+  font-weight: 600;
+}
+
+html.dark .glass-nav-item { color: #B0CEC0; }
+html.dark .glass-nav-item:hover { background: rgba(255,255,255,0.08); color: #D4EAE0; }
+html.dark .glass-nav-item.active {
+  color: #3ABFAA;
+  background: rgba(42, 160, 140, 0.12);
+  border-left-color: #3ABFAA;
+}
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+
+.glass-badge-teal {
+  background: rgba(22, 121, 110, 0.12);
+  border: 1px solid rgba(22, 121, 110, 0.26);
+  color: #16796E;
+  border-radius: 9999px;
+  font-size: 0.70rem; font-weight: 600;
+  padding: 0.18rem 0.58rem;
+  display: inline-flex; align-items: center; gap: 0.25rem;
+}
+.glass-badge-green {
+  background: rgba(30, 100, 60, 0.10);
+  border: 1px solid rgba(30, 100, 60, 0.24);
+  color: #1E6440;
+  border-radius: 9999px;
+  font-size: 0.70rem; font-weight: 600;
+  padding: 0.18rem 0.58rem;
+  display: inline-flex; align-items: center; gap: 0.25rem;
+}
+.glass-badge-amber {
+  background: rgba(160, 100, 20, 0.10);
+  border: 1px solid rgba(160, 100, 20, 0.24);
+  color: #7A5010;
+  border-radius: 9999px;
+  font-size: 0.70rem; font-weight: 600;
+  padding: 0.18rem 0.58rem;
+  display: inline-flex; align-items: center; gap: 0.25rem;
+}
+.glass-badge-gray {
+  background: rgba(40, 65, 50, 0.10);
+  border: 1px solid rgba(40, 65, 50, 0.22);
+  color: #2A4532;
+  border-radius: 9999px;
+  font-size: 0.70rem; font-weight: 600;
+  padding: 0.18rem 0.58rem;
+  display: inline-flex; align-items: center; gap: 0.25rem;
+}
+
+html.dark .glass-badge-teal { background: rgba(42,160,140,0.14); border-color: rgba(42,160,140,0.30); color: #3ABFAA; }
+html.dark .glass-badge-green { background: rgba(40,140,80,0.14); border-color: rgba(40,140,80,0.28); color: #4ABF80; }
+html.dark .glass-badge-amber { background: rgba(184,122,32,0.14); border-color: rgba(184,122,32,0.28); color: #D4A040; }
+html.dark .glass-badge-gray  { background: rgba(80,120,95,0.14); border-color: rgba(80,120,95,0.26); color: #7AAAA0; }
+
+/* ============================================================
+   PROGRESS BAR
+   ============================================================ */
+
+.glass-progress-bar {
+  background: rgba(15, 30, 20, 0.12);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+html.dark .glass-progress-bar { background: rgba(255,255,255,0.10); }
+
+.glass-progress-fill {
+  background: linear-gradient(90deg, #16796E 0%, #1A9080 100%);
+  border-radius: 9999px;
+  transition: width 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   TYPOGRAPHY — EDITORIAL SYSTEM
+   ============================================================ */
+
+.section-label {
+  font-size: 0.70rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #16796E;
+  display: block;
+  margin-bottom: 0.75rem;
+}
+html.dark .section-label { color: #3ABFAA; }
+
+.page-number {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #1A3028;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+html.dark .page-number { color: #6ABAAA; }
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.glass-table {
+  background: rgba(248, 252, 248, 0.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 22px rgba(8, 20, 14, 0.07);
+}
+html.dark .glass-table {
+  background: rgba(10, 18, 12, 0.55);
+  border-color: rgba(255,255,255,0.07);
+}
+
+.glass-table thead th {
+  background: rgba(255, 255, 255, 0.22);
+  color: #1A3028;
+  font-size: 0.70rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid rgba(150, 200, 170, 0.22);
+  text-align: left;
+}
+html.dark .glass-table thead th {
+  background: rgba(255,255,255,0.06);
+  color: #7AAAA0;
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+
+.glass-table-row {
+  border-bottom: 1px solid rgba(150, 200, 170, 0.14);
+  transition: background 0.14s ease;
+  cursor: pointer;
+}
+.glass-table-row:hover { background: rgba(255, 255, 255, 0.28); }
+.glass-table-row:last-child { border-bottom: none; }
+.glass-table td { padding: 0.95rem 1.25rem; color: #1A2E22; font-size: 0.875rem; }
+
+html.dark .glass-table-row { border-bottom-color: rgba(255,255,255,0.06); }
+html.dark .glass-table-row:hover { background: rgba(255,255,255,0.05); }
+html.dark .glass-table td { color: #B8D8CC; }
+
+/* ============================================================
+   DIVIDERS
+   ============================================================ */
+
+.glass-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(150, 200, 170, 0.32), transparent);
+  margin: 0;
+}
+html.dark .glass-divider {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+
+/* ============================================================
+   TIMELINE
+   ============================================================ */
+
+.glass-timeline-line {
+  position: absolute;
+  top: 8px; bottom: 0; left: 11px;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(22, 121, 110, 0.38), rgba(22, 121, 110, 0.04));
+}
+html.dark .glass-timeline-line {
+  background: linear-gradient(to bottom, rgba(42, 160, 140, 0.42), rgba(42, 160, 140, 0.04));
+}
+
+/* ============================================================
+   SKELETON
+   ============================================================ */
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton-cream {
+  background: linear-gradient(
+    90deg,
+    rgba(150, 200, 170, 0.16) 25%,
+    rgba(150, 200, 170, 0.30) 50%,
+    rgba(150, 200, 170, 0.16) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+html.dark .skeleton-cream {
+  background: linear-gradient(
+    90deg,
+    rgba(40, 80, 60, 0.20) 25%,
+    rgba(40, 80, 60, 0.38) 50%,
+    rgba(40, 80, 60, 0.20) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes fadeIn   { from { opacity: 0; }                      to { opacity: 1; } }
+@keyframes slideUp  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse    { 0%,100% { opacity: 1; } 50% { opacity: 0.50; } }
+@keyframes spin     { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.animate-fade-in  { animation: fadeIn 0.32s ease-out; }
+.animate-slide-up { animation: slideUp 0.28s ease-out; }
+.animate-pulse    { animation: pulse 1.6s ease-in-out infinite; }
+.animate-spin     { animation: spin 1s linear infinite; }
+
+/* ============================================================
+   DARK MODE TEXT OVERRIDES
+   ============================================================ */
+
+html.dark body { color: #D4EAE0; }
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(22, 121, 110, 0.24); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(22, 121, 110, 0.42); }
+
+/* ============================================================
+   GLOBAL RESET
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; }

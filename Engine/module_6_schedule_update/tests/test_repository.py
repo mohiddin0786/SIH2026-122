@@ -180,6 +180,28 @@ class TestExecutionStateRepository:
         retrieved = self.repo.get("CIV-001")
         assert retrieved.actual_progress is None
 
+    def test_reload_when_csv_changes_on_disk(self):
+        """A running repo should refresh if the CSV was edited externally."""
+        initial = ExecutionState(
+            activity_id="CIV-001",
+            actual_status=ExecutionStatus.NOT_STARTED,
+            actual_progress=0.0,
+            last_report_id="RPT-0001",
+            last_update_timestamp="2026-01-05T10:00:00Z",
+        )
+        self.repo.save(initial)
+
+        updated_csv = (
+            "activity_id,actual_status,actual_progress,last_report_id,last_update_timestamp\n"
+            "CIV-001,COMPLETED,100,RPT-9999,2026-01-08T10:00:00Z\n"
+        )
+        self.temp_path.write_text(updated_csv, encoding="utf-8")
+
+        retrieved = self.repo.get("CIV-001")
+        assert retrieved is not None
+        assert retrieved.actual_status == ExecutionStatus.COMPLETED
+        assert retrieved.actual_progress == 100.0
+
     def test_clear_cache(self):
         """clear_cache forces reload from disk."""
         self.repo.save(ExecutionState(

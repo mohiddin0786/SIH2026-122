@@ -45,6 +45,14 @@ from collections import defaultdict
 from shared.schemas import RawReportInput
 from integration.pipeline import Pipeline
 
+from shared.schemas import RawReportInput
+from integration.pipeline import Pipeline
+from Engine.module_6_schedule_update.config import ScheduleUpdateConfig
+from Engine.module_6_schedule_update.repository import ExecutionStateRepository
+
+_BENCHMARK_CONFIG = ScheduleUpdateConfig(execution_state_path="Data/execution_state_benchmark.csv")
+_BENCHMARK_REPOSITORY = ExecutionStateRepository(_BENCHMARK_CONFIG)
+
 
 def run_benchmark():
     print("=" * 60)
