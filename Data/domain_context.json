@@ -16,5 +16,117 @@
     "Utility Area",
     "Pump Area A",
     "Pump Area B"
-  ]
+  ],
+  "activity_type_aliases": {
+    "INSTALL": [
+      "cable",
+      "centrifugal",
+      "electrical",
+      "erect",
+      "erected",
+      "erection",
+      "field",
+      "install",
+      "installation",
+      "installed",
+      "mount",
+      "mounted",
+      "position",
+      "support",
+      "tray"
+    ],
+    "WELD": [
+      "weld",
+      "welded",
+      "welding"
+    ],
+    "FIT_UP": [
+      "fit up",
+      "fit-up",
+      "fitup"
+    ],
+    "INSPECT": [
+      "checked",
+      "checking",
+      "inspect",
+      "inspected",
+      "inspection",
+      "mechanical",
+      "readiness"
+    ],
+    "HYDROTEST": [
+      "hydro test",
+      "hydro testing",
+      "hydro-test",
+      "hydrotest",
+      "hydrotesting"
+    ],
+    "EXCAVATE": [
+      "equipment",
+      "excavate",
+      "excavated",
+      "excavating",
+      "excavation"
+    ],
+    "CAST": [
+      "cast",
+      "casting",
+      "concrete",
+      "concrete casting",
+      "concreting",
+      "pouring"
+    ],
+    "CURE": [
+      "cure",
+      "cured",
+      "curing",
+      "development",
+      "strength"
+    ],
+    "ALIGN": [
+      "align",
+      "aligned",
+      "aligning",
+      "alignment"
+    ],
+    "CALIBRATE": [
+      "calibrate",
+      "calibrated",
+      "calibrating",
+      "calibration",
+      "configuration"
+    ],
+    "LOOP_CHECK": [
+      "communication",
+      "loop",
+      "loop check",
+      "loop checking",
+      "loop-check",
+      "signal",
+      "verify"
+    ],
+    "PULL_CABLE": [
+      "cable pull",
+      "cable pulling",
+      "pull cable",
+      "pulling cable"
+    ],
+    "TERMINATE_CABLE": [
+      "cable terminated",
+      "cable terminating",
+      "cable termination",
+      "terminate cable"
+    ],
+    "CONNECT_MOTOR": [
+      "connect",
+      "connect motor",
+      "motor",
+      "motor connected",
+      "motor connecting",
+      "motor connection",
+      "power",
+      "supply",
+      "terminate"
+    ]
+  }
 }

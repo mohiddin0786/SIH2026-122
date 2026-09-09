@@ -1,18 +1,25 @@
 {
   "INSTALL": [
+    "cable",
+    "centrifugal",
+    "electrical",
+    "erect",
+    "erected",
+    "erection",
+    "field",
     "install",
     "installation",
     "installed",
-    "erect",
-    "erection",
-    "erected",
     "mount",
-    "mounted"
+    "mounted",
+    "position",
+    "support",
+    "tray"
   ],
   "WELD": [
     "weld",
-    "welding",
-    "welded"
+    "welded",
+    "welding"
   ],
   "FIT_UP": [
     "fit up",
@@ -20,69 +27,86 @@
     "fitup"
   ],
   "INSPECT": [
-    "inspect",
-    "inspection",
-    "inspected",
+    "checked",
     "checking",
-    "checked"
+    "inspect",
+    "inspected",
+    "inspection",
+    "mechanical",
+    "readiness"
   ],
   "HYDROTEST": [
-    "hydrotest",
     "hydro test",
+    "hydro testing",
     "hydro-test",
-    "hydrotesting",
-    "hydro testing"
+    "hydrotest",
+    "hydrotesting"
   ],
   "EXCAVATE": [
+    "equipment",
     "excavate",
-    "excavation",
+    "excavated",
     "excavating",
-    "excavated"
+    "excavation"
   ],
   "CAST": [
     "cast",
     "casting",
+    "concrete",
     "concrete casting",
-    "concreting"
+    "concreting",
+    "pouring"
   ],
   "CURE": [
     "cure",
+    "cured",
     "curing",
-    "cured"
+    "development",
+    "strength"
   ],
   "ALIGN": [
     "align",
-    "alignment",
     "aligned",
-    "aligning"
+    "aligning",
+    "alignment"
   ],
   "CALIBRATE": [
     "calibrate",
-    "calibration",
     "calibrated",
-    "calibrating"
+    "calibrating",
+    "calibration",
+    "configuration"
   ],
   "LOOP_CHECK": [
+    "communication",
+    "loop",
     "loop check",
     "loop checking",
-    "loop-check"
+    "loop-check",
+    "signal",
+    "verify"
   ],
   "PULL_CABLE": [
-    "cable pulling",
     "cable pull",
+    "cable pulling",
     "pull cable",
     "pulling cable"
   ],
   "TERMINATE_CABLE": [
-    "cable termination",
+    "cable terminated",
     "cable terminating",
-    "terminate cable",
-    "cable terminated"
+    "cable termination",
+    "terminate cable"
   ],
   "CONNECT_MOTOR": [
-    "motor connection",
+    "connect",
     "connect motor",
+    "motor",
+    "motor connected",
     "motor connecting",
-    "motor connected"
+    "motor connection",
+    "power",
+    "supply",
+    "terminate"
   ]
 }
