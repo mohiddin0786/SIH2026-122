@@ -62,6 +62,7 @@ from Engine.module_5_decision.decision import make_decision
 from Engine.module_6_schedule_update.updater import ScheduleUpdater
 from Engine.module_6_schedule_update.config import ScheduleUpdateConfig
 from Engine.module_7_evaluation.evaluator import evaluate_predictions
+from Engine.module_6b_ordering.graph import build_dependency_graph, topological_sort
 
 logger = logging.getLogger(__name__)
 
@@ -296,6 +297,7 @@ class Pipeline:
         self,
         raw_report: RawReportInput,
         ground_truth: Optional[object] = None,
+        apply_schedule_update: bool = True,
     ) -> PipelineResult:
         """Run every module for a single raw report.
 
@@ -313,7 +315,7 @@ class Pipeline:
         # --- Multi-activity segmentation check ---
         segment_texts = segment_report(raw_report)
         if len(segment_texts) > 1:
-            return self.process_segments(raw_report)
+            return self.process_segments(raw_report, apply_schedule_update=apply_schedule_update)
 
         result = PipelineResult(report_id=raw_report.report_id)
 
@@ -440,6 +442,8 @@ class Pipeline:
             return result
 
         # --- Module 6: Schedule Update ---
+        if not apply_schedule_update:
+            return result
         try:
             updater = ScheduleUpdater(
                 config=self.config,
@@ -466,7 +470,31 @@ class Pipeline:
 
         return result
 
-    def process_segments(self, report: RawReportInput) -> PipelineResult:
+    def apply_schedule_update(self, result: PipelineResult) -> PipelineResult:
+        """Apply Module 6 to an already completed Modules 1-5 result."""
+        if result.decision is None or result.extracted_report is None:
+            return result
+        try:
+            updater = ScheduleUpdater(
+                config=self.config,
+                schedule_master_df=self._get_schedule_master_df(),
+                repository=self._repository,
+            )
+            update = updater.update_schedule(result.decision, result.extracted_report)
+            result.update = update
+            result.stages.append(StageResult(stage="schedule_update", success=True, data=update))
+        except Exception as exc:
+            result.stages.append(StageResult(
+                stage="schedule_update", success=False,
+                error=f"Schedule update failed: {exc}", error_type=type(exc).__name__,
+            ))
+        return result
+
+    def process_segments(
+        self,
+        report: RawReportInput,
+        apply_schedule_update: bool = True,
+    ) -> PipelineResult:
         """Split a multi-activity report into independent segments
         and run each through the full Module 1–6 pipeline.
 
@@ -494,7 +522,9 @@ class Pipeline:
                 raw_text=seg_text,
             )
             try:
-                seg_result = self.process_report(seg_raw)
+                seg_result = self.process_report(
+                    seg_raw, apply_schedule_update=apply_schedule_update
+                )
             except Exception as exc:
                 logger.error(
                     "Segment %d of report %s failed: %s",
@@ -538,7 +568,9 @@ class Pipeline:
         results: List[PipelineResult] = []
         for report in raw_reports:
             try:
-                res = self.process_report(report, ground_truth=ground_truth)
+                res = self.process_report(
+                    report, ground_truth=ground_truth, apply_schedule_update=False
+                )
             except Exception as exc:
                 logger.error("Unexpected pipeline error for %s: %s", report.report_id, exc)
                 res = PipelineResult(
@@ -553,6 +585,23 @@ class Pipeline:
                     ],
                 )
             results.append(res)
+        pairs = [
+            (report.report_id, result.decision.selected_activity_id)
+            for report, result in zip(raw_reports, results)
+            if result.decision and result.decision.selected_activity_id
+        ]
+        graph = build_dependency_graph(pairs, self._get_schedule_master_df())
+        order = [activity_id for component in topological_sort(graph) for activity_id in component]
+        result_by_activity = {
+            result.decision.selected_activity_id: result
+            for result in results
+            if result.decision and result.decision.selected_activity_id
+        }
+        for activity_id in order:
+            self.apply_schedule_update(result_by_activity[activity_id])
+        for result in results:
+            if result.update is None and result.decision and result.decision.selected_activity_id not in order:
+                self.apply_schedule_update(result)
         return results
 
     def evaluate(

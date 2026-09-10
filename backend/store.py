@@ -147,6 +147,7 @@ class ApiStateStore:
         previous_progress: Optional[float],
         new_progress: Optional[float],
         message: str,
+        source: Optional[str] = None,
     ) -> dict:
         with _lock:
             self._update_counter += 1
@@ -159,6 +160,7 @@ class ApiStateStore:
                 "previousProgress": previous_progress,
                 "newProgress": new_progress,
                 "message": message,
+                "source": source,
                 "createdAt": _now_iso(),
             }
             self.updates.append(record)

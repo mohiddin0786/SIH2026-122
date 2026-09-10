@@ -286,6 +286,7 @@ class ConsistencyViolation:
     predecessor_id: str
     predecessor_status: str
     message: str
+    predecessor_chain: Optional[List[dict]] = None
 
 
 # ---------------------------------------------------------------------------

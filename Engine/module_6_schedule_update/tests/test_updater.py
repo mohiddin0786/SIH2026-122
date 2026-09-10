@@ -559,6 +559,41 @@ def test_enforce_predecessor_consistency_disabled(updater):
     assert result.new_execution_state.actual_status == ExecutionStatus.COMPLETED
 
 
+def test_predecessor_chain_blocks_on_first_incomplete_and_exposes_full_chain(updater):
+    """The gate remains first-failure based while the violation exposes all links."""
+    schedule = pd.DataFrame([
+        {"activity_id": "A", "activity_name": "A", "predecessor_activity_id": ""},
+        {"activity_id": "B", "activity_name": "B", "predecessor_activity_id": "A"},
+        {"activity_id": "C", "activity_name": "C", "predecessor_activity_id": "B"},
+    ])
+    updater._schedule_master = schedule
+    updater.repository.save(ExecutionState(
+        activity_id="A", actual_status=ExecutionStatus.COMPLETED, actual_progress=100,
+    ))
+
+    result = updater.update_schedule(
+        _make_decision("RPT-CHAIN", DecisionType.AUTO_MATCH, "C"),
+        _make_extracted_report("RPT-CHAIN", EventType.FINISH),
+    )
+
+    assert result.update_status == UpdateStatus.PENDING_REVIEW
+    assert result.violation.predecessor_id == "B"
+    assert [item["activity_id"] for item in result.violation.predecessor_chain] == ["B", "A"]
+    assert result.violation.predecessor_chain[0]["status"] == ExecutionStatus.NOT_STARTED.value
+
+
+def test_predecessor_chain_cycle_terminates(updater):
+    """A malformed cyclic schedule must not make chain traversal loop forever."""
+    updater._schedule_master = pd.DataFrame([
+        {"activity_id": "A", "activity_name": "A", "predecessor_activity_id": "B"},
+        {"activity_id": "B", "activity_name": "B", "predecessor_activity_id": "A"},
+    ])
+
+    chain = updater._get_predecessor_chain("A")
+
+    assert [item["activity_id"] for item in chain] == ["B"]
+
+
 def test_existing_human_review_path_unchanged(updater):
     """Human review remains pending without invoking consistency checks."""
     result = updater.update_schedule(

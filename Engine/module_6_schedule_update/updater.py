@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 
 import pandas as pd
 
@@ -81,6 +81,44 @@ class ScheduleUpdater:
             return None
         return matches.iloc[0]
 
+    def _get_predecessor_chain(self, activity_id: str) -> List[dict]:
+        """Return predecessor execution snapshots from nearest to furthest."""
+        chain: List[dict] = []
+        visited = {activity_id}
+        current_id = activity_id
+
+        while True:
+            baseline = self._get_activity_baseline(current_id)
+            if baseline is None:
+                break
+            predecessor_value = baseline.get("predecessor_activity_id", "")
+            predecessor_id = "" if pd.isna(predecessor_value) else str(predecessor_value).strip()
+            if not predecessor_id or predecessor_id in visited:
+                break
+            visited.add(predecessor_id)
+
+            predecessor_baseline = self._get_activity_baseline(predecessor_id)
+            if predecessor_baseline is None:
+                chain.append({
+                    "activity_id": predecessor_id,
+                    "activity_name": "Unknown activity",
+                    "status": "unknown",
+                })
+                break
+
+            state = self.repository.get(predecessor_id)
+            chain.append({
+                "activity_id": predecessor_id,
+                "activity_name": str(predecessor_baseline.get("activity_name", predecessor_id)),
+                "status": (
+                    state.actual_status.value
+                    if state is not None
+                    else ExecutionStatus.NOT_STARTED.value
+                ),
+            })
+            current_id = predecessor_id
+        return chain
+
     def _validate_decision(self, decision: DecisionResult) -> None:
         """Validate decision input against schema rules.
 
@@ -146,7 +184,7 @@ class ScheduleUpdater:
         activity_id: str,
         proposed_status: ExecutionStatus,
     ) -> Optional[ConsistencyViolation]:
-        """Check whether completion violates the direct predecessor dependency."""
+        """Check whether completion violates any predecessor dependency."""
         if not self.config.enforce_predecessor_consistency:
             return None
 
@@ -157,46 +195,43 @@ class ScheduleUpdater:
         if baseline is None:
             return None
 
-        predecessor_value = baseline.get("predecessor_activity_id", "")
-        predecessor_id = "" if pd.isna(predecessor_value) else str(predecessor_value).strip()
-        if not predecessor_id:
+        chain = self._get_predecessor_chain(activity_id)
+        if not chain:
             return None
-
-        predecessor_baseline = self._get_activity_baseline(predecessor_id)
-        if predecessor_baseline is None:
-            return ConsistencyViolation(
-                rule="predecessor_not_found",
-                activity_id=activity_id,
-                predecessor_id=predecessor_id,
-                predecessor_status="unknown",
-                message=(
-                    f"Data integrity issue: activity {activity_id} references "
-                    f"predecessor {predecessor_id}, which does not exist in "
-                    f"Schedule Master."
-                ),
-            )
-
-        predecessor_state = self.repository.get(predecessor_id)
-        if predecessor_state is None:
-            predecessor_status_value = ExecutionStatus.NOT_STARTED.value
-            predecessor_status_label = "no execution record (not yet reported)"
-        else:
-            predecessor_status_value = predecessor_state.actual_status.value
-            predecessor_status_label = predecessor_status_value
-
-        if predecessor_status_value != ExecutionStatus.COMPLETED.value:
-            return ConsistencyViolation(
-                rule="predecessor_incomplete",
-                activity_id=activity_id,
-                predecessor_id=predecessor_id,
-                predecessor_status=predecessor_status_label,
-                message=(
-                    f"Schedule consistency violation: activity {activity_id} is "
-                    f"being marked COMPLETED, but predecessor {predecessor_id} "
-                    f"is {predecessor_status_label}."
-                ),
-            )
-
+        for predecessor in chain:
+            predecessor_id = predecessor["activity_id"]
+            predecessor_status = predecessor["status"]
+            if self._get_activity_baseline(predecessor_id) is None:
+                return ConsistencyViolation(
+                    rule="predecessor_not_found",
+                    activity_id=activity_id,
+                    predecessor_id=predecessor_id,
+                    predecessor_status="unknown",
+                    message=(
+                        f"Data integrity issue: activity {activity_id} references "
+                        f"predecessor {predecessor_id}, which does not exist in "
+                        f"Schedule Master."
+                    ),
+                    predecessor_chain=chain,
+                )
+            if predecessor_status != ExecutionStatus.COMPLETED.value:
+                status_label = (
+                    "no execution record (not yet reported)"
+                    if predecessor_status == ExecutionStatus.NOT_STARTED.value
+                    else predecessor_status
+                )
+                return ConsistencyViolation(
+                    rule="predecessor_incomplete",
+                    activity_id=activity_id,
+                    predecessor_id=predecessor_id,
+                    predecessor_status=status_label,
+                    message=(
+                        f"Schedule consistency violation: activity {activity_id} is "
+                        f"being marked COMPLETED, but predecessor {predecessor_id} "
+                        f"is {status_label}."
+                    ),
+                    predecessor_chain=chain,
+                )
         return None
 
     def update_schedule(

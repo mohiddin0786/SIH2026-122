@@ -16,7 +16,7 @@ const STATUS_META: Record<string, { icon: React.ReactNode; color: string; label:
 };
 
 export function BatchReportResult({ result, onReset }: BatchReportResultProps) {
-  const { summary, results } = result;
+  const { summary, results, batchOrdering } = result;
 
   return (
     <div className="glass-panel p-6 flex flex-col animate-fade-in h-full">
@@ -60,6 +60,17 @@ export function BatchReportResult({ result, onReset }: BatchReportResultProps) {
           );
         })}
       </div>
+
+      {batchOrdering.length > 0 && (
+        <div className="mt-4 text-xs text-secondary">
+          <div className="section-label mb-2">DEPENDENCY ORDER</div>
+          {batchOrdering.map((group, index) => (
+            <div key={index} className="glass-card px-3 py-2 mb-1">
+              {group.join(' -> ')}
+            </div>
+          ))}
+        </div>
+      )}
 
       <button onClick={onReset} className="glass-button-ghost text-xs flex items-center gap-1.5 mt-4">
         <RotateCcw size={11} /> Submit another batch

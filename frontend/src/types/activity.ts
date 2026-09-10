@@ -29,5 +29,6 @@ export interface ActivityUpdate {
   previousProgress?: number;
   newProgress?: number;
   message: string;
+  source?: 'bulk-override' | 'violation-resolution' | string;
   createdAt: string;
 }

@@ -6,6 +6,11 @@ export interface ConsistencyViolation {
   predecessorId: string;
   predecessorStatus: string;
   message: string;
+  predecessorChain?: Array<{
+    activityId: string;
+    activityName: string;
+    status: string;
+  }>;
 }
 
 export interface Candidate {
@@ -65,6 +70,7 @@ export interface BatchSummary {
 export interface BatchSubmitResponse {
   results: BatchResultItem[];
   summary: BatchSummary;
+  batchOrdering: string[][];
 }
 
 export interface ParsedUploadResponse {

@@ -39,6 +39,7 @@ from integration.pipeline import Pipeline
 from Engine.module_6_schedule_update.repository import ExecutionStateRepository
 from Engine.module_6_schedule_update.config import ScheduleUpdateConfig
 from Engine.module_6_schedule_update.status_mapper import StatusMapper
+from Engine.module_6b_ordering.graph import build_dependency_graph, topological_sort
 
 from . import batch_parser
 from .store import store
@@ -253,6 +254,21 @@ class RejectBody(BaseModel):
     note: Optional[str] = None
 
 
+class ResolveViolationItem(BaseModel):
+    predecessorId: str
+    action: str
+    note: Optional[str] = None
+
+
+class ResolveViolationBody(BaseModel):
+    items: List[ResolveViolationItem]
+
+
+class BulkCompleteChainBody(BaseModel):
+    predecessorIds: List[str]
+    note: Optional[str] = None
+
+
 @app.get("/api/projects/{project_id}/reports")
 def list_reports(project_id: str):
     return envelope(store.list_reports(project_id))
@@ -272,11 +288,12 @@ def get_report(report_id: str):
 
 
 def _process_single_report(project_id: str, text: str, source_type: str = "frontend",
-                            report_date: Optional[str] = None) -> dict:
+                            report_date: Optional[str] = None, report_id: Optional[str] = None,
+                            pipeline_result=None) -> dict:
     if not text or not text.strip():
         return {"status": "ERROR", "error": "Report text must not be empty"}
 
-    report_id = store.new_report_id()
+    report_id = report_id or store.new_report_id()
     raw_report = RawReportInput(
         report_id=report_id,
         report_date=report_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -284,7 +301,7 @@ def _process_single_report(project_id: str, text: str, source_type: str = "front
         raw_text=text,
     )
 
-    result = _pipeline().process_report(raw_report)
+    result = pipeline_result or _pipeline().process_report(raw_report)
 
     if result.failed():
         failed = result.failed_stage()
@@ -308,6 +325,7 @@ def _process_single_report(project_id: str, text: str, source_type: str = "front
                 "predecessorId": v.predecessor_id,
                 "predecessorStatus": v.predecessor_status,
                 "message": v.message,
+                "predecessorChain": v.predecessor_chain or [],
             }
             store.create_report(
                 report_id,
@@ -365,6 +383,145 @@ def submit_report(project_id: str, body: SubmitReportBody):
     return envelope(result)
 
 
+def _require_violation_report(report_id: str) -> dict:
+    report = store.get_report(report_id)
+    if report is None or report.get("status") != "SCHEDULE_VIOLATION":
+        fail(404, f"Schedule violation report {report_id} not found")
+    return report
+
+
+def _validate_predecessor_ids(predecessor_ids: List[str]) -> None:
+    valid_ids = set(_schedule_df()["activity_id"])
+    invalid = sorted(set(predecessor_ids) - valid_ids)
+    if invalid:
+        fail(400, f"Unknown predecessor activity IDs: {', '.join(invalid)}")
+
+
+def _write_resolution_state(activity_id: str, report_id: str, message: str, source: str,
+                            state: Optional[ExecutionState] = None) -> dict:
+    repo = _exec_repo()
+    previous = repo.get(activity_id)
+    previous_status = _STATUS_MAP.get(previous.actual_status.value, "NOT_STARTED") if previous else "NOT_STARTED"
+    previous_progress = previous.actual_progress if previous else 0
+    state = state or ExecutionState(
+        activity_id=activity_id,
+        actual_status=ExecutionStatus.COMPLETED,
+        actual_progress=100.0,
+        last_report_id=report_id,
+        last_update_timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+    repo.save(state)
+    return store.add_update(
+        activity_id, report_id, previous_status, "COMPLETED", previous_progress, 100.0,
+        message, source=source,
+    )
+
+
+def _retry_violation_report(report_id: str, report: dict) -> dict:
+    raw_report = RawReportInput(
+        report_id=report_id,
+        report_date=report.get("submittedAt", "")[:10] or None,
+        source_type="violation-retry",
+        raw_text=report["text"],
+    )
+    result = _pipeline().process_report(raw_report)
+    update = result.update
+    activity_id = report.get("matchedActivityId")
+    remaining = []
+    if update and update.violation:
+        remaining = [
+            item for item in (update.violation.predecessor_chain or [])
+            if item["status"] != ExecutionStatus.COMPLETED.value
+        ]
+        store.update_report(report_id, violation={
+            "rule": update.violation.rule,
+            "activityId": update.violation.activity_id,
+            "predecessorId": update.violation.predecessor_id,
+            "predecessorStatus": update.violation.predecessor_status,
+            "message": update.violation.message,
+            "predecessorChain": update.violation.predecessor_chain or [],
+        })
+        return {"status": "SCHEDULE_VIOLATION", "reportId": report_id,
+                "activity": _get_activity_view(activity_id), "remaining": remaining}
+
+    if update and update.new_execution_state:
+        previous = update.previous_execution_state
+        store.add_update(
+            activity_id, report_id,
+            _STATUS_MAP.get(previous.actual_status.value, "NOT_STARTED") if previous else "NOT_STARTED",
+            _STATUS_MAP.get(update.new_execution_state.actual_status.value, "NOT_STARTED"),
+            previous.actual_progress if previous else 0,
+            update.new_execution_state.actual_progress or 0,
+            update.update_reason,
+        )
+    store.update_report(report_id, status="SUCCESS")
+    return {"status": "SUCCESS", "reportId": report_id,
+            "activity": _get_activity_view(activity_id), "remaining": []}
+
+
+@app.post("/api/reports/{report_id}/resolve-violation")
+def resolve_violation(report_id: str, body: ResolveViolationBody):
+    report = _require_violation_report(report_id)
+    if any(item.action not in ("log_report", "mark_resolved") for item in body.items):
+        fail(400, "action must be log_report or mark_resolved")
+    predecessor_ids = [item.predecessorId for item in body.items]
+    _validate_predecessor_ids(predecessor_ids)
+
+    updates = []
+    for item in body.items:
+        if item.action == "log_report":
+            synthetic = RawReportInput(
+                report_id=f"{report_id}-resolution-{item.predecessorId}",
+                report_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                source_type="violation-resolution",
+                raw_text=f"Activity {item.predecessorId} completed. {item.note or ''}".strip(),
+            )
+            extracted = extract_information(normalize_report(synthetic))
+            previous = _exec_repo().get(item.predecessorId)
+            mapping = StatusMapper().map_from_extracted_report(
+                extracted,
+                current_state=previous.actual_status if previous else None,
+                current_progress=previous.actual_progress if previous else 0,
+            )
+            state = ExecutionState(
+                activity_id=item.predecessorId,
+                actual_status=mapping.actual_status,
+                actual_progress=mapping.actual_progress,
+                last_report_id=synthetic.report_id,
+                last_update_timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            )
+            updates.append(_write_resolution_state(
+                item.predecessorId, report_id,
+                item.note or f"Resolved predecessor via violation-resolution for {report_id}",
+                "violation-resolution",
+                state=state,
+            ))
+        else:
+            updates.append(_write_resolution_state(
+                item.predecessorId, report_id,
+                item.note or f"Marked resolved from violated report {report_id}",
+                "violation-resolution",
+            ))
+    result = _retry_violation_report(report_id, report)
+    return envelope({**result, "updates": updates})
+
+
+@app.post("/api/reports/{report_id}/bulk-complete-chain")
+def bulk_complete_chain(report_id: str, body: BulkCompleteChainBody):
+    report = _require_violation_report(report_id)
+    _validate_predecessor_ids(body.predecessorIds)
+    updates = [
+        _write_resolution_state(
+            activity_id, report_id,
+            body.note or f"Bulk override for violated report {report_id}",
+            "bulk-override",
+        )
+        for activity_id in body.predecessorIds
+    ]
+    result = _retry_violation_report(report_id, report)
+    return envelope({**result, "updates": updates})
+
+
 @app.post("/api/projects/{project_id}/reports/batch")
 def submit_batch(project_id: str, body: SubmitBatchBody):
     if project_id != PROJECT_ID:
@@ -372,13 +529,25 @@ def submit_batch(project_id: str, body: SubmitBatchBody):
     if not body.items:
         fail(400, "No items provided")
 
+    raw_reports = [
+        RawReportInput(
+            report_id=store.new_report_id(),
+            report_date=item.reportDate or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            source_type=item.sourceType or "batch",
+            raw_text=item.text,
+        )
+        for item in body.items
+    ]
+    pipeline_results = _pipeline().process_batch(raw_reports)
     results = []
-    for item in body.items:
+    for item, raw_report, pipeline_result in zip(body.items, raw_reports, pipeline_results):
         try:
             r = _process_single_report(
                 project_id, item.text,
                 source_type=item.sourceType or "batch",
                 report_date=item.reportDate,
+                report_id=raw_report.report_id,
+                pipeline_result=pipeline_result,
             )
         except Exception as e:
             logger.exception("Batch item failed")
@@ -392,7 +561,13 @@ def submit_batch(project_id: str, body: SubmitBatchBody):
         "unmatched": sum(1 for r in results if r.get("status") == "UNMATCHED"),
         "errors": sum(1 for r in results if r.get("status") == "ERROR"),
     }
-    return envelope({"results": results, "summary": summary})
+    pairs = [
+        (raw_report.report_id, pipeline_result.decision.selected_activity_id)
+        for raw_report, pipeline_result in zip(raw_reports, pipeline_results)
+        if pipeline_result.decision and pipeline_result.decision.selected_activity_id
+    ]
+    ordering = topological_sort(build_dependency_graph(pairs, _schedule_df()))
+    return envelope({"results": results, "summary": summary, "batchOrdering": ordering})
 
 
 @app.post("/api/projects/{project_id}/reports/parse")
