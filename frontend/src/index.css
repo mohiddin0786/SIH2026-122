@@ -336,6 +336,15 @@ html.dark .glass-nav-item.active {
   padding: 0.18rem 0.58rem;
   display: inline-flex; align-items: center; gap: 0.25rem;
 }
+.glass-badge-red {
+  background: rgba(160, 56, 40, 0.09);
+  border: 1px solid rgba(160, 56, 40, 0.28);
+  color: #A03828;
+  border-radius: 9999px;
+  font-size: 0.70rem; font-weight: 600;
+  padding: 0.18rem 0.58rem;
+  display: inline-flex; align-items: center; gap: 0.25rem;
+}
 .glass-badge-gray {
   background: rgba(40, 65, 50, 0.10);
   border: 1px solid rgba(40, 65, 50, 0.22);
@@ -349,6 +358,7 @@ html.dark .glass-nav-item.active {
 html.dark .glass-badge-teal { background: rgba(42,160,140,0.14); border-color: rgba(42,160,140,0.30); color: #3ABFAA; }
 html.dark .glass-badge-green { background: rgba(40,140,80,0.14); border-color: rgba(40,140,80,0.28); color: #4ABF80; }
 html.dark .glass-badge-amber { background: rgba(184,122,32,0.14); border-color: rgba(184,122,32,0.28); color: #D4A040; }
+html.dark .glass-badge-red { background: rgba(190,70,55,0.16); border-color: rgba(190,70,55,0.30); color: #E08A7D; }
 html.dark .glass-badge-gray  { background: rgba(80,120,95,0.14); border-color: rgba(80,120,95,0.26); color: #7AAAA0; }
 
 /* ============================================================

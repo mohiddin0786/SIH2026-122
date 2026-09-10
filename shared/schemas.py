@@ -24,6 +24,7 @@ RULES (see Common Integration Contract):
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -276,6 +277,17 @@ class ExecutionState(BaseModel):
         return v
 
 
+@dataclass(frozen=True)
+class ConsistencyViolation:
+    """Structured detail of a schedule-consistency rule failure."""
+
+    rule: str
+    activity_id: str
+    predecessor_id: str
+    predecessor_status: str
+    message: str
+
+
 # ---------------------------------------------------------------------------
 # 14. UpdateResult  (Module 6 output)
 # ---------------------------------------------------------------------------
@@ -289,6 +301,7 @@ class UpdateResult(BaseModel):
     previous_execution_state: Optional[ExecutionState] = None
     new_execution_state: Optional[ExecutionState] = None
     update_reason: str = ""
+    violation: Optional[ConsistencyViolation] = None
 
 
 # ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
+        'accent-red': '#A03828',
         cream: {
           50:  '#FFFDF7',
           100: '#FBF8EE',

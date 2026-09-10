@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FieldReport } from '../../types/report';
 import { reportService } from '../../services/reportService';
-import { X, AlertTriangle, HelpCircle, Loader2, ArrowRight } from 'lucide-react';
+import { X, AlertTriangle, HelpCircle, ShieldAlert, Loader2, ArrowRight } from 'lucide-react';
 
 interface ReviewPanelProps {
   report: FieldReport;
@@ -16,6 +16,7 @@ export function ReviewPanel({ report, onClose, onResolved }: ReviewPanelProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isUnmatched = report.status === 'UNMATCHED';
+  const isViolation = report.status === 'SCHEDULE_VIOLATION';
 
   const handleConfirm = async () => {
     if (!selectedCandidate) return;
@@ -57,7 +58,9 @@ export function ReviewPanel({ report, onClose, onResolved }: ReviewPanelProps) {
           style={{ borderBottom: '1px solid rgba(190,180,160,0.22)' }}
         >
           <div className="flex items-center gap-2">
-            {isUnmatched ? (
+            {isViolation ? (
+              <ShieldAlert size={17} style={{ color: '#A03828' }} />
+            ) : isUnmatched ? (
               <HelpCircle size={17} className="text-muted" />
             ) : (
               <AlertTriangle size={17} className="text-accent-amber" />
@@ -95,7 +98,28 @@ export function ReviewPanel({ report, onClose, onResolved }: ReviewPanelProps) {
             </div>
           </div>
 
-          {!showRejectNote ? (
+          {isViolation ? (
+            <div className="animate-fade-in">
+              <span className="section-label">VIOLATION DETAIL</span>
+              <div
+                className="p-4 rounded-xl text-sm mb-4"
+                style={{ background: 'rgba(160,56,40,0.06)', border: '1px solid rgba(160,56,40,0.22)' }}
+              >
+                {report.violation?.message}
+              </div>
+              <p className="text-xs text-muted mb-4">
+                This report matched activity <strong>{report.matchedActivityId}</strong> with high confidence,
+                but was blocked because predecessor <strong>{report.violation?.predecessorId}</strong> is
+                currently <strong>{report.violation?.predecessorStatus}</strong>. Resubmit once the
+                predecessor is completed, or mark unresolved below.
+              </p>
+              {!showRejectNote && (
+                <button onClick={() => setShowRejectNote(true)} className="glass-button-ghost text-sm w-full py-2">
+                  MARK AS UNRESOLVED
+                </button>
+              )}
+            </div>
+          ) : !showRejectNote ? (
             <>
               <span className="section-label">SELECT MATCHING ACTIVITY</span>
               {report.candidateActivities?.length > 0 ? (
@@ -201,7 +225,18 @@ export function ReviewPanel({ report, onClose, onResolved }: ReviewPanelProps) {
           className="p-5 pt-4"
           style={{ borderTop: '1px solid rgba(190,180,160,0.18)' }}
         >
-          {!showRejectNote ? (
+          {isViolation ? (
+            showRejectNote && (
+              <button
+                onClick={handleReject}
+                disabled={isSubmitting}
+                className="glass-button-secondary w-full py-3 text-sm flex justify-center items-center gap-2"
+                style={{ borderColor: 'rgba(160,56,40,0.28)' }}
+              >
+                {isSubmitting ? <Loader2 size={17} className="animate-spin" /> : 'MARK AS UNRESOLVED'}
+              </button>
+            )
+          ) : !showRejectNote ? (
             <button
               onClick={handleConfirm}
               disabled={!selectedCandidate || isSubmitting}

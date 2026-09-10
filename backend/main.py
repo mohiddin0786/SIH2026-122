@@ -31,11 +31,14 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from shared.constants import DecisionType, ExecutionStatus
+from shared.constants import DecisionType, ExecutionStatus, UpdateStatus
 from shared.schemas import RawReportInput, ExecutionState
+from Engine.module_1_normalization.normalizer import normalize_report
+from Engine.module_2_extraction.extractor import extract_information
 from integration.pipeline import Pipeline
 from Engine.module_6_schedule_update.repository import ExecutionStateRepository
 from Engine.module_6_schedule_update.config import ScheduleUpdateConfig
+from Engine.module_6_schedule_update.status_mapper import StatusMapper
 
 from . import batch_parser
 from .store import store
@@ -296,6 +299,31 @@ def _process_single_report(project_id: str, text: str, source_type: str = "front
     if decision.decision == DecisionType.AUTO_MATCH:
         activity_id = decision.selected_activity_id
         update = result.update
+
+        if update and update.update_status == UpdateStatus.PENDING_REVIEW and update.violation:
+            v = update.violation
+            violation = {
+                "rule": v.rule,
+                "activityId": v.activity_id,
+                "predecessorId": v.predecessor_id,
+                "predecessorStatus": v.predecessor_status,
+                "message": v.message,
+            }
+            store.create_report(
+                report_id,
+                project_id,
+                text,
+                status="SCHEDULE_VIOLATION",
+                matched_activity_id=activity_id,
+                violation=violation,
+            )
+            return {
+                "status": "SCHEDULE_VIOLATION",
+                "reportId": report_id,
+                "activity": _get_activity_view(activity_id),
+                "violation": violation,
+            }
+
         prev_state = update.previous_execution_state if update else None
         new_state = update.new_execution_state if update else None
         prev_status = _STATUS_MAP.get(prev_state.actual_status.value, "NOT_STARTED") if prev_state else "NOT_STARTED"
@@ -405,19 +433,44 @@ def confirm_activity(report_id: str, body: ConfirmBody):
     prev_status = _STATUS_MAP.get(prev_state.actual_status.value, "NOT_STARTED") if prev_state else "NOT_STARTED"
     prev_progress = prev_state.actual_progress if prev_state else 0
 
-    new_progress = max(prev_progress or 0, 50)
+    raw_report = RawReportInput(
+        report_id=report_id,
+        report_date=report.get("submittedAt", "")[:10] or None,
+        source_type="confirmation",
+        raw_text=report["text"],
+    )
+    extracted_report = extract_information(normalize_report(raw_report))
+    mapping = StatusMapper().map_from_extracted_report(
+        extracted_report,
+        current_state=prev_state.actual_status if prev_state else None,
+        current_progress=prev_progress,
+    )
+
     new_state = ExecutionState(
         activity_id=body.activityId,
-        actual_status=ExecutionStatus.IN_PROGRESS,
-        actual_progress=new_progress,
+        actual_status=mapping.actual_status,
+        actual_progress=mapping.actual_progress,
         last_report_id=report_id,
         last_update_timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+    logger.info(
+        "TRACE report_id=%s event_type=%s extracted_progress=%s mapped_status=%s mapped_progress=%s",
+        report_id,
+        extracted_report.event_type.value.value,
+        extracted_report.progress.value,
+        mapping.actual_status.value,
+        mapping.actual_progress,
     )
     exec_repo.save(new_state)
 
     update_record = store.add_update(
-        body.activityId, report_id, prev_status, "IN_PROGRESS", prev_progress, new_progress,
-        f"Activity confirmed via Field Report {report_id}",
+        body.activityId,
+        report_id,
+        prev_status,
+        mapping.actual_status.value,
+        prev_progress,
+        mapping.actual_progress,
+        f"Activity confirmed via Field Report {report_id}: {mapping.reason}",
     )
 
     store.update_report(report_id, status="SUCCESS", matchedActivityId=body.activityId, userDecision="CONFIRMED")

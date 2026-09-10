@@ -23,6 +23,9 @@ class ScheduleUpdateConfig:
             automatically if it doesn't exist.
         allow_state_regression: If False (default), prevent COMPLETED activities
             from reverting to IN_PROGRESS due to older reports.
+        enforce_predecessor_consistency: If True (default), block an activity
+            from being marked COMPLETED when its direct predecessor is not
+            itself COMPLETED (or predecessor data is missing/invalid).
         timestamp_format: ISO-8601 format for timestamps.
     """
 
@@ -30,6 +33,7 @@ class ScheduleUpdateConfig:
     execution_state_path: str = "Data/execution_state.csv"
     auto_create_execution_store: bool = True
     allow_state_regression: bool = False
+    enforce_predecessor_consistency: bool = True
     timestamp_format: str = "%Y-%m-%dT%H:%M:%SZ"
 
     def __post_init__(self) -> None:
