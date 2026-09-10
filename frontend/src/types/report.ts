@@ -1,4 +1,13 @@
+// TODO(backend): a new terminal status (e.g. 'RESOLVED') may be introduced after
+// violation-resolution work lands on the backend. Confirm the exact string value
+// with backend before adding it here — do not guess.
 export type ReportStatus = 'PROCESSING' | 'SUCCESS' | 'NEEDS_REVIEW' | 'UNMATCHED' | 'SCHEDULE_VIOLATION';
+
+export interface PredecessorStatusItem {
+  activityId: string;
+  activityName?: string;
+  status: string; // NOT_STARTED | IN_PROGRESS | COMPLETED
+}
 
 export interface ConsistencyViolation {
   rule: 'predecessor_incomplete' | 'predecessor_not_found';
@@ -6,11 +15,22 @@ export interface ConsistencyViolation {
   predecessorId: string;
   predecessorStatus: string;
   message: string;
-  predecessorChain?: Array<{
-    activityId: string;
-    activityName: string;
-    status: string;
-  }>;
+  predecessorChain?: PredecessorStatusItem[];
+}
+
+export interface ResolveViolationItem {
+  predecessorId: string;
+  action: 'log_report' | 'mark_resolved';
+  note?: string;
+}
+
+export interface ResolveViolationRequest {
+  items: ResolveViolationItem[];
+}
+
+export interface BulkCompleteChainRequest {
+  predecessorIds: string[];
+  note?: string;
 }
 
 export interface Candidate {

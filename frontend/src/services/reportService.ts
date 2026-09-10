@@ -4,6 +4,7 @@ import {
   BatchSubmitResponse,
   FieldReport,
   ParsedUploadResponse,
+  ResolveViolationItem,
   SubmitReportResponse,
 } from '../types/report';
 
@@ -32,4 +33,11 @@ export const reportService = {
     api.post<SubmitReportResponse>(`/reports/${reportId}/confirm`, { activityId }),
   rejectReport: (reportId: string, note?: string) =>
     api.post<{ status: string; reportId: string }>(`/reports/${reportId}/reject`, { note }),
+  // TODO(backend): these endpoints do not exist yet and will return 404 until backend lands the
+  // corresponding routes. This is intentional — frontend and backend are landing in separate PRs
+  // but must ship together before either is considered complete.
+  resolveViolation: (reportId: string, items: ResolveViolationItem[]) =>
+    api.post(`/reports/${reportId}/resolve-violation`, { items }),
+  bulkCompleteChain: (reportId: string, predecessorIds: string[], note?: string) =>
+    api.post(`/reports/${reportId}/bulk-complete-chain`, { predecessorIds, note }),
 };
