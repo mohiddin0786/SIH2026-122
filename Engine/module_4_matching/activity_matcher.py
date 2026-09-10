@@ -12,6 +12,7 @@ location field).
 
 from __future__ import annotations
 
+import re
 from typing import Dict, List, Optional
 
 from rapidfuzz import fuzz
@@ -25,7 +26,7 @@ def score_activity(
     activity_synonyms: Dict[str, List[str]],
     fuzzy_match_floor: int,
 ) -> SignalResult:
-    report_type = activity_type_value.value if activity_type_value else None
+    report_type = getattr(activity_type_value, "value", activity_type_value)
     # ActivityType enum members expose .value (e.g. "INSTALL"); tolerate a
     # plain string too so this stays testable without importing the enum.
     type_key = getattr(report_type, "value", report_type)
@@ -46,16 +47,31 @@ def score_activity(
     best_synonym = None
     for syn in synonyms:
         syn_lower = syn.lower()
-        if syn_lower in name_lower:
+        pattern = r"\b" + re.escape(syn_lower) + r"\b"
+        if re.search(pattern, name_lower):
             best_score = 1.0
             best_synonym = syn
             break
-        raw = fuzz.partial_ratio(syn_lower, name_lower)
-        if raw >= fuzzy_match_floor:
-            score = round(raw / 100.0, 4)
-            if score > best_score:
-                best_score = score
-                best_synonym = syn
+
+        syn_words = syn_lower.split()
+        k = len(syn_words)
+        tokens = re.findall(r"\b[\w-]+\b", name_lower)
+        for i in range(len(tokens) - k + 1):
+            window = " ".join(tokens[i : i + k])
+            # Require all words from the synonym to appear in the candidate
+            # window. This prevents false positives like "cable tray"
+            # matching "pull cable" via fuzzy similarity alone.
+            window_tokens = window.split()
+            if k > 1 and not all(w in window_tokens for w in syn_words):
+                continue
+            if k == 1 and window_tokens[0] != syn_words[0]:
+                continue
+            raw = fuzz.ratio(syn_lower, window)
+            if raw >= fuzzy_match_floor:
+                score = round(raw / 100.0, 4)
+                if score > best_score:
+                    best_score = score
+                    best_synonym = syn
 
     if best_synonym is None:
         return SignalResult(

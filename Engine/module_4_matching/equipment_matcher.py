@@ -57,26 +57,35 @@ def score_equipment(
     # but must not apply to tags — identity keys are exact after normalize.
     _ = fuzzy_match_floor
 
-    report_value = _best_report_value(report_equipment_tags)
     candidate_value = (candidate_equipment_tag or "").strip() or None
 
-    if not report_value and not candidate_value:
+    if not report_equipment_tags and not candidate_value:
         return SignalResult(0.0, False, False, [])
-    if not report_value:
+    if not report_equipment_tags:
         return SignalResult(0.0, False, False, ["Candidate has an equipment tag but report does not mention one"])
     if not candidate_value:
+        best_report_value = _best_report_value(report_equipment_tags)
         return SignalResult(
             0.0,
             False,
             False,
-            [f"Report mentions equipment {report_value} but candidate has no equipment tag on file"],
+            [f"Report mentions equipment {best_report_value} but candidate has no equipment tag on file"],
         )
 
-    report_tag = normalize_equipment_tag(report_value)
+    # Compare candidate against ALL normalized report tags — not just the highest-confidence one.
     candidate_tag = normalize_equipment_tag(candidate_value)
-    if report_tag and candidate_tag and report_tag == candidate_tag:
-        return SignalResult(1.0, True, False, [f"Exact equipment tag match: {report_tag}"])
+    report_tags_normalized = [
+        normalize_equipment_tag(ent.value.strip())
+        for ent in report_equipment_tags
+    ]
+    # Filter out None values from normalization failures.
+    report_tags_normalized = [t for t in report_tags_normalized if t]
 
+    if candidate_tag and any(report_tag == candidate_tag for report_tag in report_tags_normalized):
+        matched_tag = candidate_tag
+        return SignalResult(1.0, True, False, [f"Exact equipment tag match: {matched_tag}"])
+
+    report_value = _best_report_value(report_equipment_tags)
     return SignalResult(
         0.0,
         True,

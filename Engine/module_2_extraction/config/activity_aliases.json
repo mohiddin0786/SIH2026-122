@@ -1,112 +1,115 @@
 {
   "INSTALL": [
-    "cable",
-    "centrifugal",
-    "electrical",
-    "erect",
-    "erected",
-    "erection",
-    "field",
     "install",
     "installation",
     "installed",
+    "installing",
+    "install cable tray",
+    "cable tray installation",
+    "tray installation",
+    "erect",
+    "erection",
+    "erected",
     "mount",
     "mounted",
-    "position",
-    "support",
-    "tray"
+    "mounting",
+    "placed"
   ],
   "WELD": [
     "weld",
-    "welded",
-    "welding"
+    "welding",
+    "welded"
   ],
   "FIT_UP": [
     "fit up",
     "fit-up",
-    "fitup"
+    "fitup",
+    "joint preparation",
+    "joint prep"
   ],
   "INSPECT": [
-    "checked",
-    "checking",
     "inspect",
-    "inspected",
     "inspection",
-    "mechanical",
-    "readiness"
+    "inspected",
+    "checking",
+    "checked",
+    "quality check"
   ],
   "HYDROTEST": [
-    "hydro test",
-    "hydro testing",
-    "hydro-test",
     "hydrotest",
-    "hydrotesting"
+    "hydro test",
+    "hydro-test",
+    "hydrotesting",
+    "hydro testing",
+    "pressure test"
   ],
   "EXCAVATE": [
-    "equipment",
     "excavate",
-    "excavated",
+    "excavation",
     "excavating",
-    "excavation"
+    "excavated",
+    "foundation digging",
+    "digging"
   ],
   "CAST": [
     "cast",
     "casting",
-    "concrete",
     "concrete casting",
     "concreting",
-    "pouring"
+    "pour concrete",
+    "concrete pour",
+    "pour"
   ],
   "CURE": [
     "cure",
-    "cured",
     "curing",
-    "development",
-    "strength"
+    "cured"
   ],
   "ALIGN": [
     "align",
+    "alignment",
     "aligned",
-    "aligning",
-    "alignment"
+    "aligning"
   ],
   "CALIBRATE": [
     "calibrate",
-    "calibrated",
-    "calibrating",
     "calibration",
-    "configuration"
+    "calibrated",
+    "calibrating"
   ],
   "LOOP_CHECK": [
-    "communication",
-    "loop",
     "loop check",
     "loop checking",
-    "loop-check",
-    "signal",
-    "verify"
+    "loop-check"
   ],
   "PULL_CABLE": [
-    "cable pull",
     "cable pulling",
+    "cable pull",
     "pull cable",
-    "pulling cable"
+    "pulling cable",
+    "pull cables",
+    "cables routed",
+    "cable routing",
+    "cables routing",
+    "routed cables",
+    "routing cables"
   ],
   "TERMINATE_CABLE": [
-    "cable terminated",
-    "cable terminating",
     "cable termination",
-    "terminate cable"
+    "cable terminating",
+    "terminate cable",
+    "cable terminated",
+    "cables terminated",
+    "cables terminating",
+    "terminating cables"
   ],
   "CONNECT_MOTOR": [
-    "connect",
-    "connect motor",
-    "motor",
-    "motor connected",
-    "motor connecting",
     "motor connection",
-    "power",
-    "supply",
-    "terminate"
+    "connect motor",
+    "motor connecting",
+    "motor connected",
+    "motor power hookup",
+    "power hookup",
+    "power connected"
   ]
 }

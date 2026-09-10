@@ -126,6 +126,60 @@ def test_missing_equipment_is_not_computable_not_penalized():
     assert ranked.scores.contradiction_penalty == 0.0
 
 
+def test_multi_tag_report_matches_first_tag():
+    """Report with [F-101, F-102] and candidate F-101 should match (not contradiction)."""
+    report = _report(equipment=("F-101", "F-102"))
+    candidate = _candidate(equipment_tag="F-101")
+    result = rank_candidates(report, _candidates(report.report_id, candidate))
+    ranked = result.ranked_candidates[0]
+    assert ranked.scores.contradiction_penalty == 0.0
+    assert ranked.scores.equipment_score == 1.0
+
+
+def test_multi_tag_report_matches_second_tag():
+    """Report with [F-101, F-102] and candidate F-102 should match (not contradiction)."""
+    report = _report(equipment=("F-101", "F-102"))
+    candidate = _candidate(equipment_tag="F-102")
+    result = rank_candidates(report, _candidates(report.report_id, candidate))
+    ranked = result.ranked_candidates[0]
+    assert ranked.scores.contradiction_penalty == 0.0
+    assert ranked.scores.equipment_score == 1.0
+
+
+def test_multi_tag_report_no_match_is_contradiction():
+    """Report with [F-101, F-102] and candidate F-103 should be a contradiction."""
+    report = _report(equipment=("F-101", "F-102"))
+    candidate = _candidate(equipment_tag="F-103")
+    result = rank_candidates(report, _candidates(report.report_id, candidate))
+    ranked = result.ranked_candidates[0]
+    assert ranked.scores.contradiction_penalty > 0.0
+    assert ranked.scores.equipment_score == 0.0
+
+
+def test_multi_tag_report_different_confidence_matches_any_tag():
+    """Report with [F-102(0.95), F-101(0.9)] and candidate F-101 should match,
+    not be a false contradiction because F-101 is a valid report tag."""
+    from shared.schemas import ExtractedEntity
+    equipment_tags = [
+        ExtractedEntity(value="F-102", confidence=0.95),
+        ExtractedEntity(value="F-101", confidence=0.9),
+    ]
+    report = ExtractedReport(
+        report_id="RPT-MULTI-CONF",
+        normalized_text="Welding F-101 and F-102 at Pipe Rack",
+        equipment_tags=equipment_tags,
+        locations=[ExtractedEntity(value="Pipe Rack", confidence=0.9)],
+        activity_type=ActivityTypeValue(value=ActivityType.WELD, confidence=0.9),
+        event_type=EventTypeValue(),
+        progress=ExtractedNumericValue(),
+    )
+    candidate = _candidate(equipment_tag="F-101")
+    result = rank_candidates(report, _candidates(report.report_id, candidate))
+    ranked = result.ranked_candidates[0]
+    assert ranked.scores.contradiction_penalty == 0.0
+    assert ranked.scores.equipment_score == 1.0
+
+
 def test_multiple_close_candidates_are_deterministically_ordered():
     report = _report()
     a = _candidate("PIP-021", "Install piping spool SP-101", "SP-101", "Pump Area A")
