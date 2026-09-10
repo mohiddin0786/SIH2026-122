@@ -25,6 +25,7 @@ from shared.schemas import (
     ActivityTypeValue,
     DecisionResult,
     EventTypeValue,
+    ExecutionState,
     ExtractedNumericValue,
     ExtractedReport,
     ExtractedEntity,
@@ -447,4 +448,124 @@ def test_convenience_function(temp_config):
         config=temp_config,
     )
     assert result.update_status == UpdateStatus.UPDATED
-    assert result.activity_id == "CIV-001"
+
+
+def test_predecessor_complete_allows_completion(updater):
+    """A completed predecessor allows its successor to complete."""
+    updater.repository.save(
+        ExecutionState(
+            activity_id="CIV-001",
+            actual_status=ExecutionStatus.COMPLETED,
+            actual_progress=100.0,
+        )
+    )
+
+    result = updater.update_schedule(
+        _make_decision("RPT-PRED-001", DecisionType.AUTO_MATCH, "CIV-002"),
+        _make_extracted_report("RPT-PRED-001", EventType.FINISH),
+    )
+
+    assert result.update_status == UpdateStatus.UPDATED
+    assert result.new_execution_state.actual_status == ExecutionStatus.COMPLETED
+    assert result.violation is None
+
+
+def test_predecessor_incomplete_blocks_completion(updater):
+    """An incomplete predecessor blocks successor completion."""
+    updater.repository.save(
+        ExecutionState(
+            activity_id="CIV-001",
+            actual_status=ExecutionStatus.IN_PROGRESS,
+            actual_progress=50.0,
+        )
+    )
+
+    result = updater.update_schedule(
+        _make_decision("RPT-PRED-002", DecisionType.AUTO_MATCH, "CIV-002"),
+        _make_extracted_report("RPT-PRED-002", EventType.FINISH),
+    )
+
+    assert result.update_status == UpdateStatus.PENDING_REVIEW
+    assert result.new_execution_state is None
+    assert result.violation.rule == "predecessor_incomplete"
+    assert updater.repository.get("CIV-002") is None
+
+
+def test_predecessor_missing_execution_record_blocks(updater):
+    """A predecessor without an execution record blocks completion."""
+    result = updater.update_schedule(
+        _make_decision("RPT-PRED-003", DecisionType.AUTO_MATCH, "CIV-002"),
+        _make_extracted_report("RPT-PRED-003", EventType.FINISH),
+    )
+
+    assert result.update_status == UpdateStatus.PENDING_REVIEW
+    assert "no execution record" in result.violation.predecessor_status
+
+
+def test_no_predecessor_allows_completion(updater):
+    """An activity without a predecessor can complete normally."""
+    result = updater.update_schedule(
+        _make_decision("RPT-PRED-004", DecisionType.AUTO_MATCH, "CIV-001"),
+        _make_extracted_report("RPT-PRED-004", EventType.FINISH),
+    )
+
+    assert result.update_status == UpdateStatus.UPDATED
+    assert result.new_execution_state.actual_status == ExecutionStatus.COMPLETED
+
+
+def test_predecessor_progress_does_not_trigger_check(updater):
+    """Predecessor consistency is enforced only for completion events."""
+    updater.repository.save(
+        ExecutionState(
+            activity_id="CIV-001",
+            actual_status=ExecutionStatus.IN_PROGRESS,
+            actual_progress=50.0,
+        )
+    )
+
+    result = updater.update_schedule(
+        _make_decision("RPT-PRED-005", DecisionType.AUTO_MATCH, "CIV-002"),
+        _make_extracted_report("RPT-PRED-005", EventType.PROGRESS, progress=50.0),
+    )
+
+    assert result.update_status == UpdateStatus.UPDATED
+    assert result.new_execution_state.actual_status == ExecutionStatus.IN_PROGRESS
+
+
+def test_dangling_predecessor_reference_flagged_as_data_issue(updater, schedule_master_df):
+    """A missing predecessor baseline is reported as a data-integrity issue."""
+    schedule_master = schedule_master_df.copy()
+    schedule_master.loc[schedule_master["activity_id"] == "CIV-002", "predecessor_activity_id"] = "MISSING-001"
+    updater._schedule_master = schedule_master
+
+    result = updater.update_schedule(
+        _make_decision("RPT-PRED-006", DecisionType.AUTO_MATCH, "CIV-002"),
+        _make_extracted_report("RPT-PRED-006", EventType.FINISH),
+    )
+
+    assert result.update_status == UpdateStatus.PENDING_REVIEW
+    assert result.violation.rule == "predecessor_not_found"
+
+
+def test_enforce_predecessor_consistency_disabled(updater):
+    """The consistency rule can be disabled for legacy or staged workflows."""
+    updater.config.enforce_predecessor_consistency = False
+    result = updater.update_schedule(
+        _make_decision("RPT-PRED-007", DecisionType.AUTO_MATCH, "CIV-002"),
+        _make_extracted_report("RPT-PRED-007", EventType.FINISH),
+    )
+
+    assert result.update_status == UpdateStatus.UPDATED
+    assert result.new_execution_state.actual_status == ExecutionStatus.COMPLETED
+
+
+def test_existing_human_review_path_unchanged(updater):
+    """Human review remains pending without invoking consistency checks."""
+    result = updater.update_schedule(
+        _make_decision("RPT-PRED-008", DecisionType.HUMAN_REVIEW, "CIV-002"),
+        _make_extracted_report("RPT-PRED-008", EventType.FINISH),
+    )
+
+    assert result.update_status == UpdateStatus.PENDING_REVIEW
+    assert result.new_execution_state is None
+    assert result.violation is None

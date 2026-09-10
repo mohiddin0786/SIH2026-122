@@ -41,6 +41,7 @@ export function formatStatus(status: string): string {
     IN_PROGRESS: 'In Progress',
     COMPLETED: 'Completed',
     NEEDS_REVIEW: 'Needs Review',
+    SCHEDULE_VIOLATION: 'Schedule Violation',
     SUCCESS: 'Processed',
     UNMATCHED: 'Unmatched',
     PROCESSING: 'Processing',

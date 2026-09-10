@@ -239,6 +239,17 @@ class Pipeline:
         # --- Module 2: Extraction ---
         try:
             extracted = extract_information(normalized)
+            logger.info(
+                "TRACE report_id=%s raw_text=%r normalized_text=%r "
+                "event_type=%s event_confidence=%.3f progress=%s progress_confidence=%.3f",
+                raw_report.report_id,
+                raw_report.raw_text,
+                normalized.normalized_text,
+                extracted.event_type.value.value,
+                extracted.event_type.confidence,
+                extracted.progress.value,
+                extracted.progress.confidence,
+            )
             result.extracted_report = extracted
             result.stages.append(
                 StageResult(stage="extraction", success=True, data=extracted)
@@ -299,6 +310,17 @@ class Pipeline:
         # --- Module 5: Decision ---
         try:
             decision = make_decision(ranking)
+            logger.info(
+                "TRACE report_id=%s decision=%s selected_activity=%s confidence=%.4f "
+                "best_score=%s second_best_score=%s score_gap=%s",
+                raw_report.report_id,
+                decision.decision.value,
+                decision.selected_activity_id,
+                decision.confidence,
+                decision.best_score,
+                decision.second_best_score,
+                decision.score_gap,
+            )
             result.decision = decision
             result.stages.append(
                 StageResult(stage="decision", success=True, data=decision)

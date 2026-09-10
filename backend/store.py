@@ -85,6 +85,7 @@ class ApiStateStore:
         status: str,
         matched_activity_id: Optional[str] = None,
         candidate_activities: Optional[List[dict]] = None,
+        violation: Optional[dict] = None,
     ) -> dict:
         now = _now_iso()
         record = {
@@ -96,6 +97,7 @@ class ApiStateStore:
             "status": status,
             "matchedActivityId": matched_activity_id,
             "candidateActivities": candidate_activities or [],
+            "violation": violation,
             "userDecision": None,
             "reviewNote": None,
             "createdAt": now,
@@ -130,7 +132,8 @@ class ApiStateStore:
         return [
             r
             for r in self.list_reports(project_id)
-            if r["status"] in ("NEEDS_REVIEW", "UNMATCHED") and r.get("userDecision") is None
+            if r["status"] in ("NEEDS_REVIEW", "UNMATCHED", "SCHEDULE_VIOLATION")
+            and r.get("userDecision") is None
         ]
 
     # -- activity update history -------------------------------------------------------

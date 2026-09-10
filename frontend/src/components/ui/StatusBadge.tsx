@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, RefreshCw, Circle, AlertTriangle, HelpCircle } from 'lucide-react';
+import { CheckCircle2, RefreshCw, Circle, AlertTriangle, HelpCircle, ShieldAlert } from 'lucide-react';
 import { formatStatus } from '../../utils/formatters';
 
 interface StatusBadgeProps {
@@ -17,6 +17,8 @@ export function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
         return 'glass-badge-teal';
       case 'NEEDS_REVIEW':
         return 'glass-badge-amber';
+      case 'SCHEDULE_VIOLATION':
+        return 'glass-badge-red';
       case 'NOT_STARTED':
       case 'UNMATCHED':
         return 'glass-badge-gray';
@@ -37,6 +39,8 @@ export function StatusBadge({ status, size = 'sm' }: StatusBadgeProps) {
         return <Circle size={sz} />;
       case 'NEEDS_REVIEW':
         return <AlertTriangle size={sz} />;
+      case 'SCHEDULE_VIOLATION':
+        return <ShieldAlert size={sz} />;
       case 'UNMATCHED':
         return <HelpCircle size={sz} />;
       default:

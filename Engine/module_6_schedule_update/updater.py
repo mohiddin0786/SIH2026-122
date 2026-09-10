@@ -20,6 +20,7 @@ from shared.schemas import (
     ExecutionState,
     UpdateResult,
     ExtractedReport,
+    ConsistencyViolation,
 )
 
 from .config import ScheduleUpdateConfig, DEFAULT_CONFIG
@@ -52,7 +53,14 @@ class ScheduleUpdater:
 
         df = pd.read_csv(self._schedule_master_path, dtype=str)
         # Validate required columns exist
-        required = ["activity_id", "planned_start", "planned_finish", "planned_duration_days", "baseline_status"]
+        required = [
+            "activity_id",
+            "planned_start",
+            "planned_finish",
+            "planned_duration_days",
+            "baseline_status",
+            "predecessor_activity_id",
+        ]
         missing = [c for c in required if c not in df.columns]
         if missing:
             raise ScheduleUpdateError(
@@ -132,6 +140,64 @@ class ScheduleUpdater:
             return False
 
         return True
+
+    def _check_predecessor_consistency(
+        self,
+        activity_id: str,
+        proposed_status: ExecutionStatus,
+    ) -> Optional[ConsistencyViolation]:
+        """Check whether completion violates the direct predecessor dependency."""
+        if not self.config.enforce_predecessor_consistency:
+            return None
+
+        if proposed_status != ExecutionStatus.COMPLETED:
+            return None
+
+        baseline = self._get_activity_baseline(activity_id)
+        if baseline is None:
+            return None
+
+        predecessor_value = baseline.get("predecessor_activity_id", "")
+        predecessor_id = "" if pd.isna(predecessor_value) else str(predecessor_value).strip()
+        if not predecessor_id:
+            return None
+
+        predecessor_baseline = self._get_activity_baseline(predecessor_id)
+        if predecessor_baseline is None:
+            return ConsistencyViolation(
+                rule="predecessor_not_found",
+                activity_id=activity_id,
+                predecessor_id=predecessor_id,
+                predecessor_status="unknown",
+                message=(
+                    f"Data integrity issue: activity {activity_id} references "
+                    f"predecessor {predecessor_id}, which does not exist in "
+                    f"Schedule Master."
+                ),
+            )
+
+        predecessor_state = self.repository.get(predecessor_id)
+        if predecessor_state is None:
+            predecessor_status_value = ExecutionStatus.NOT_STARTED.value
+            predecessor_status_label = "no execution record (not yet reported)"
+        else:
+            predecessor_status_value = predecessor_state.actual_status.value
+            predecessor_status_label = predecessor_status_value
+
+        if predecessor_status_value != ExecutionStatus.COMPLETED.value:
+            return ConsistencyViolation(
+                rule="predecessor_incomplete",
+                activity_id=activity_id,
+                predecessor_id=predecessor_id,
+                predecessor_status=predecessor_status_label,
+                message=(
+                    f"Schedule consistency violation: activity {activity_id} is "
+                    f"being marked COMPLETED, but predecessor {predecessor_id} "
+                    f"is {predecessor_status_label}."
+                ),
+            )
+
+        return None
 
     def update_schedule(
         self,
@@ -264,6 +330,17 @@ class ScheduleUpdater:
             current_state=current_status,
             current_progress=current_progress,
         )
+        logger.info(
+            "TRACE report_id=%s activity_id=%s event_type=%s extracted_progress=%s "
+            "mapped_status=%s mapped_progress=%s reason=%s",
+            report_id,
+            activity_id,
+            extracted_report.event_type.value.value,
+            extracted_report.progress.value,
+            mapping.actual_status.value,
+            mapping.actual_progress,
+            mapping.reason,
+        )
 
         # Check for state regression
         if previous_state and not self._should_allow_regression(
@@ -283,6 +360,30 @@ class ScheduleUpdater:
                 ),
             )
 
+        violation = self._check_predecessor_consistency(
+            activity_id=activity_id,
+            proposed_status=mapping.actual_status,
+        )
+        if violation:
+            logger.warning(
+                "Schedule consistency violation: activity_id=%s report_id=%s rule=%s",
+                activity_id,
+                report_id,
+                violation.rule,
+            )
+            return UpdateResult(
+                report_id=report_id,
+                update_status=UpdateStatus.PENDING_REVIEW,
+                activity_id=activity_id,
+                previous_execution_state=previous_state,
+                new_execution_state=None,
+                update_reason=(
+                    f"{violation.message} Automatic update blocked; human review required. "
+                    f"Model confidence: {decision.confidence:.2f}."
+                ),
+                violation=violation,
+            )
+
         # Build new execution state
         new_state = ExecutionState(
             activity_id=activity_id,
@@ -290,6 +391,13 @@ class ScheduleUpdater:
             actual_progress=mapping.actual_progress,
             last_report_id=extracted_report.report_id,
             last_update_timestamp=timestamp,
+        )
+        logger.info(
+            "TRACE report_id=%s final_execution_state activity_id=%s status=%s progress=%s",
+            report_id,
+            new_state.activity_id,
+            new_state.actual_status.value,
+            new_state.actual_progress,
         )
 
         # Persist
