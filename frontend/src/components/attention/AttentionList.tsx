@@ -51,6 +51,21 @@ export function AttentionList({ reports, onReview }: AttentionListProps) {
                     ? 'Multiple possible activities'
                     : 'Activity could not be identified'}
                 </span>
+                {/* Optional chain-count badge — shown only when backend returns predecessorChain with >1 items */}
+                {report.status === 'SCHEDULE_VIOLATION' &&
+                  report.violation?.predecessorChain &&
+                  report.violation.predecessorChain.length > 1 && (
+                    <span
+                      className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                      style={{
+                        background: 'rgba(160,56,40,0.06)',
+                        border: '1px solid rgba(160,56,40,0.18)',
+                        color: '#A03828',
+                      }}
+                    >
+                      {report.violation.predecessorChain.length} predecessors pending
+                    </span>
+                  )}
               </div>
               <p className="text-sm mb-1.5 font-medium text-secondary">
                 {truncate(report.text, 100)}
