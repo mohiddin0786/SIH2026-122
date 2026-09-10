@@ -80,20 +80,25 @@ class MatchingWeights:
 # values, mapped to words we'd expect to see in a schedule activity_name).
 # Configurable / overridable — not meant to be exhaustive out of the box.
 DEFAULT_ACTIVITY_SYNONYMS: Dict[str, List[str]] = {
-    "INSTALL": ["install", "installation", "erect", "erection", "mount", "fit"],
+    # NOTE: bare "fit" is intentionally NOT in INSTALL — it conflicts with
+    # FIT_UP candidate names (e.g. "Perform fit-up for...") which also contain
+    # "fit". Leaving it only under FIT_UP prevents identical activity_scores
+    # when an INSTALL-typed report is scored against both INSTALL and FIT_UP
+    # candidates, which previously caused an INSUFFICIENT_GAP block.
+    "INSTALL": ["install", "installation", "installing", "install cable tray", "cable tray installation", "tray installation", "erect", "erection", "mount", "mounted", "mounting", "placed"],
     "WELD": ["weld", "welding"],
-    "FIT_UP": ["fit-up", "fit up", "fitup", "fit"],
-    "INSPECT": ["inspect", "inspection"],
+    "FIT_UP": ["fit-up", "fit up", "fitup", "fit", "joint preparation", "joint prep"],
+    "INSPECT": ["inspect", "inspection", "quality check"],
     "HYDROTEST": ["hydrotest", "hydro test", "pressure test", "hydrostatic test"],
-    "EXCAVATE": ["excavate", "excavation", "dig"],
-    "CAST": ["cast", "casting", "pour", "concrete pour"],
+    "EXCAVATE": ["excavate", "excavation", "dig", "foundation digging", "digging"],
+    "CAST": ["cast", "casting", "pour", "concrete pour", "pour concrete"],
     "CURE": ["cure", "curing"],
     "ALIGN": ["align", "alignment"],
     "CALIBRATE": ["calibrate", "calibration"],
     "LOOP_CHECK": ["loop check", "loop test"],
-    "PULL_CABLE": ["pull cable", "cable pulling", "cabling"],
-    "TERMINATE_CABLE": ["terminate cable", "cable termination", "termination"],
-    "CONNECT_MOTOR": ["connect motor", "motor connection", "motor hookup"],
+    "PULL_CABLE": ["pull cable", "cable pulling", "cabling", "pull cables", "cables routed", "cable routing", "cables routing", "routed cables", "routing cables"],
+    "TERMINATE_CABLE": ["terminate cable", "terminate cables", "cable termination", "termination", "cables terminated", "cables terminating", "terminating cables"],
+    "CONNECT_MOTOR": ["connect motor", "motor connection", "motor hookup", "motor power hookup", "power hookup", "power connected"],
 }
 
 DEFAULT_DISCIPLINE_MAP: Dict[str, str] = {

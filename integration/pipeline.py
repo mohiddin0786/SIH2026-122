@@ -14,17 +14,25 @@ Orchestrates all 7 modules in order:
 
 The schedule index is built once and reused across all reports, keeping
 I/O and embedding-model load overhead minimal.
+
+Multi-activity reports:
+    When a single RawReportInput contains multiple independent activities,
+    segment_report() splits it into independent sub-reports, each of which
+    is processed through the full Module 1-6 pipeline separately.
+    See segment_report() and process_segments() below.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import pandas as pd
 
+from shared.constants import EventType
 from shared.exceptions import PipelineError
 from shared.schemas import (
     RawReportInput,
@@ -39,7 +47,11 @@ from shared.schemas import (
 )
 
 from Engine.module_1_normalization.normalizer import normalize_report
-from Engine.module_2_extraction.extractor import extract_information
+from Engine.module_2_extraction.extractor import (
+    extract_information,
+    EQUIPMENT_TAG_PATTERN,
+    extract_event_type,
+)
 from Engine.module_3_candidate.retriever import (
     ScheduleIndex,
     build_schedule_index,
@@ -88,6 +100,10 @@ class PipelineResult:
     ranking: Optional[RankingResult] = None
     decision: Optional[DecisionResult] = None
     update: Optional[UpdateResult] = None
+
+    # Multi-activity segmentation: populated when the report
+    # was split into independent segments (None for single-activity reports).
+    segments: Optional[List["PipelineResult"]] = None
 
     def failed(self) -> bool:
         """Return True if any stage raised an error."""
@@ -152,6 +168,84 @@ def _load_schedule_index(
 
 
 # ---------------------------------------------------------------------------
+# Multi-activity report segmentation
+# ---------------------------------------------------------------------------
+
+# Strong boundary: period followed by whitespace + uppercase letter,
+# or a semicolon.  Avoids splitting on abbreviations and decimals.
+_BOUNDARY_RE = re.compile(r"(?<=[.]|;)\s+(?=[A-Z])")
+
+# Evidence rule: a segment must carry an identity signal AND an
+# event/progress signal to be processed independently.
+
+
+def _segment_has_evidence(text: str) -> bool:
+    """Return True when *text* contains enough independent evidence to
+    represent an activity update.
+
+    Two conditions must both hold (AND):
+      1. An identity signal: an equipment tag (F-101, P-888, …) or
+         another strong identity marker already present in the project.
+      2. An event / progress signal: a recognised event word such as
+         started, completed, finished, 50%, progress, etc.
+
+    Contextual phrases (``after inspection approval``, ``because of
+    weather``, ``started yesterday and is now 50% complete``) that lack
+    either signal are NOT split.
+    """
+    equipment_tags = EQUIPMENT_TAG_PATTERN.findall(text)
+    has_identity = len(equipment_tags) > 0
+
+    if not has_identity:
+        return False
+
+    event_type = extract_event_type(text)
+    has_event = event_type.value in (
+        EventType.START,
+        EventType.PROGRESS,
+        EventType.FINISH,
+    )
+    return has_event
+
+
+def segment_report(report: RawReportInput) -> List[str]:
+    """Split a raw report into independent segment strings using only
+    strong boundaries.
+
+    Splits on sentence boundaries (``.`` followed by whitespace +
+    uppercase letter) or semicolons (``;``).  Each candidate segment is
+    then validated by ``_segment_has_evidence``; segments that do not
+    satisfy the evidence rule are re-joined with the preceding segment
+    rather than processed independently.
+
+    Safety principle: WHEN IN DOUBT, DO NOT SPLIT.
+    """
+    text = report.raw_text.strip()
+
+    # Quick check: does the text even contain a strong boundary?
+    if not _BOUNDARY_RE.search(text):
+        return [text]
+
+    raw_segments = _BOUNDARY_RE.split(text)
+
+    # Apply the conservative evidence rule: a segment is only kept
+    # as an independent activity when it contains both an identity
+    # signal and an event/progress signal.
+    segments: List[str] = []
+    for seg in raw_segments:
+        seg_stripped = seg.strip()
+        if not seg_stripped:
+            continue
+        if segments and not _segment_has_evidence(seg_stripped):
+            # Not enough independent evidence — merge with previous.
+            segments[-1] = segments[-1] + " " + seg_stripped
+        else:
+            segments.append(seg_stripped)
+
+    return segments if len(segments) > 1 else [text]
+
+
+# ---------------------------------------------------------------------------
 # Core pipeline class
 # ---------------------------------------------------------------------------
 
@@ -213,7 +307,14 @@ class Pipeline:
 
         Returns:
             PipelineResult with every stage's outcome populated.
+            When the report contains multiple independent activities,
+            the result carries all segment results in ``.segments``.
         """
+        # --- Multi-activity segmentation check ---
+        segment_texts = segment_report(raw_report)
+        if len(segment_texts) > 1:
+            return self.process_segments(raw_report)
+
         result = PipelineResult(report_id=raw_report.report_id)
 
         # --- Module 1: Normalization ---
@@ -364,6 +465,65 @@ class Pipeline:
             return result
 
         return result
+
+    def process_segments(self, report: RawReportInput) -> PipelineResult:
+        """Split a multi-activity report into independent segments
+        and run each through the full Module 1–6 pipeline.
+
+        Each segment receives a unique report_id of the form
+        ``{original_report_id}-seg-{N}`` so that Module 6's
+        duplicate/idempotency design remains intact and every
+        segment is independently auditable.
+
+        If one segment fails, the remaining valid segments are
+        still processed and represented in the aggregate result.
+        """
+        segments_text = segment_report(report)
+        original_report_id = report.report_id
+        original_report_date = report.report_date
+        original_source_type = report.source_type
+
+        segment_results: List[PipelineResult] = []
+
+        for idx, seg_text in enumerate(segments_text, start=1):
+            seg_report_id = f"{original_report_id}-seg-{idx}"
+            seg_raw = RawReportInput(
+                report_id=seg_report_id,
+                report_date=original_report_date,
+                source_type=original_source_type,
+                raw_text=seg_text,
+            )
+            try:
+                seg_result = self.process_report(seg_raw)
+            except Exception as exc:
+                logger.error(
+                    "Segment %d of report %s failed: %s",
+                    idx, original_report_id, exc,
+                )
+                seg_result = PipelineResult(
+                    report_id=seg_report_id,
+                    stages=[
+                        StageResult(
+                            stage="pipeline",
+                            success=False,
+                            error=f"Segment processing failed: {exc}",
+                            error_type=type(exc).__name__,
+                        )
+                    ],
+                )
+            segment_results.append(seg_result)
+
+        return PipelineResult(
+            report_id=original_report_id,
+            segments=segment_results,
+            stages=[
+                StageResult(
+                    stage="segmentation",
+                    success=True,
+                    data=f"{len(segment_results)} segment(s) processed",
+                )
+            ],
+        )
 
     def process_batch(
         self,

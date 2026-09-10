@@ -33,6 +33,17 @@ STRATEGY (hybrid, weighted):
     (ascending), so results are stable regardless of the schedule CSV's
     row order.
 
+EXACT-EQUIPMENT-MATCH GUARANTEE:
+    When the report has a recognized equipment tag, ALL schedule activities
+    whose equipment_tag exactly matches that tag are ALWAYS included in the
+    returned candidate set, beyond the normal top_k semantic candidates.
+    Rationale: an equipment tag is a hard, deterministic anchor — if the
+    report says "SP-101", every SP-101 activity in the schedule is a
+    plausible match and must be presented to Module 4 for detailed scoring.
+    Without this guarantee, a fixed top_k cutoff can silently drop valid
+    GT activities when one tag has > top_k schedule activities, producing
+    phantom "retrieval misses" that are purely an artifact of the cutoff.
+
 NOTE ON CandidateRetrievalResult.top_k:
     top_k on the returned result reflects the ACTUAL number of candidates
     returned (len(candidates)), not the requested top_k argument. If the
@@ -249,9 +260,19 @@ def retrieve_candidates(
     activity_id ascending, for deterministic output). Never raises on
     sparse report metadata — degrades to semantic-only scoring.
 
+    EXACT-EQUIPMENT-MATCH GUARANTEE: regardless of top_k, every schedule
+    activity whose equipment_tag exactly matches the report's extracted
+    equipment tag (equipment_match == 1.0) is always included. This
+    prevents a fixed top_k cutoff from silently excluding valid candidates
+    when a single tag has more than top_k associated schedule activities.
+    Scoring, thresholds, and Module 5 safety gates are NOT changed — the
+    extra candidates simply enter Module 4 for normal detailed scoring.
+
     NOTE: the returned CandidateRetrievalResult.top_k reflects the actual
-    number of candidates returned, which may be less than the requested
-    top_k if the schedule has fewer activities than that.
+    number of candidates returned (len(candidates)), not the requested
+    top_k argument — when the tag-match guarantee expands the set, top_k
+    will exceed the requested value. Consumers should always iterate
+    result.candidates rather than relying on top_k as a bound.
     """
     if top_k <= 0:
         raise RetrievalError("top_k must be a positive integer", report_id=report.report_id)
@@ -289,6 +310,20 @@ def retrieve_candidates(
     # ascending (not DataFrame row order, which is CSV-load-order-dependent).
     scored_rows.sort(key=lambda x: (-x[0], x[1]))
     top_rows = scored_rows[:top_k]
+
+    # Exact-equipment-match guarantee: include ALL candidates whose
+    # equipment_tag exactly matches the report's extracted tag, even if
+    # they scored below the top_k cutoff on retrieval_score alone.
+    # This prevents the GT from being silently truncated when a tag has
+    # more than top_k associated schedule activities — which is a
+    # retrieval bug, not a ranking or safety issue.
+    # Scoring, weights, and Module 5 gates are deliberately untouched.
+    seen_ids = {r[1] for r in top_rows}
+    for row_tuple in scored_rows:
+        signals = row_tuple[3]
+        if signals.get("equipment_match") == 1.0 and row_tuple[1] not in seen_ids:
+            top_rows.append(row_tuple)
+            seen_ids.add(row_tuple[1])
 
     candidates: List[RetrievedCandidate] = []
     for final_score, _activity_id, i, signals in top_rows:

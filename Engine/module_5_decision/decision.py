@@ -52,10 +52,31 @@ def make_decision(ranking_result: RankingResult) -> DecisionResult:
             second_best_score = None
             score_gap = None
 
+        # Check for ambiguous same-equipment candidate tie with no activity evidence
+        is_ambiguous_no_activity = False
+        if len(candidates) > 1:
+            c1_act = getattr(candidates[0].scores, "activity_score", 0.0) or 0.0
+            c2_act = getattr(candidates[1].scores, "activity_score", 0.0) or 0.0
+            c1_eq = getattr(candidates[0].scores, "equipment_score", 0.0) or 0.0
+            c2_eq = getattr(candidates[1].scores, "equipment_score", 0.0) or 0.0
+            if c1_act == 0.0 and c2_act == 0.0 and c1_eq == 1.0 and c2_eq == 1.0:
+                is_ambiguous_no_activity = True
+
+        has_contradiction = (getattr(best_candidate.scores, "contradiction_penalty", 0.0) or 0.0) > 0.0
+        c1_eq = getattr(best_candidate.scores, "equipment_score", 0.0) or 0.0
+        c1_loc = getattr(best_candidate.scores, "location_score", 0.0) or 0.0
+        c1_act = getattr(best_candidate.scores, "activity_score", 0.0) or 0.0
+        c1_sem = getattr(best_candidate.scores, "semantic_score", 0.0) or 0.0
+
+        has_grounding = (c1_eq > 0.0) or (c1_loc > 0.0 and c1_act > 0.0 and c1_sem >= 0.85)
+
         # Case 2: High confidence and clearly better than alternatives
         if (
             best_score >= AUTO_MATCH_THRESHOLD
             and (score_gap is None or score_gap >= MIN_SCORE_GAP)
+            and not is_ambiguous_no_activity
+            and not has_contradiction
+            and has_grounding
         ):
             return DecisionResult(
                 report_id=report_id,
@@ -78,6 +99,11 @@ def make_decision(ranking_result: RankingResult) -> DecisionResult:
             reasons = [
                 "Best candidate is plausible but does not satisfy auto-match criteria."
             ]
+
+            if is_ambiguous_no_activity:
+                reasons.append(
+                    "Multiple candidates match the same equipment tag but report has no specific activity keyword evidence."
+                )
 
             if score_gap is not None and score_gap < MIN_SCORE_GAP:
                 reasons.append(

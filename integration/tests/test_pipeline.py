@@ -192,50 +192,68 @@ def _mock_retrieve_from_ranked(
 def _make_human_review_mock(schedule_index) -> callable:
     """Create a mock retrieve function for HUMAN_REVIEW tests.
 
-    Returns candidates where the top candidate has final_score=0.72
-    (HUMAN_REVIEW range: 0.50 <= score < 0.80) and a gap >= MIN_SCORE_GAP
-    to the second candidate (final=0.468, UNMATCHED).
+    Returns candidates where the top candidate has final_score ~0.95
+    (exceeds AUTO_MATCH_THRESHOLD) but fails the evidence gate:
+    - equipment_tag=None -> equipment_score=0.0 (Policy A fails)
+    - location=None -> location_score=0.0 (Policy B fails)
+    - activity has CAST synonym -> activity_score=1.0 and semantic>=0.85
+    None of Policy A (equipment_score==1.0) nor Policy B
+    (location>0, activity>0, semantic>=0.85) pass, so AUTO_MATCH is
+    blocked despite the high score. The score exceeds REVIEW_THRESHOLD
+    -> HUMAN_REVIEW.
+
+    Subsequent candidates have equipment contradiction (XX-999) so
+    contradiction_penalty=0.35 and final_score well below the top
+    candidate, giving a score_gap >= MIN_SCORE_GAP.
 
     Weight config (MatchingWeights): semantic=0.20, equipment=0.30,
     activity=0.20, location=0.15, discipline=0.05, date=0.10.
-    Top candidate: activity_name has no CAST synonym -> activity non-computable,
-    location=None -> location non-computable, equipment_tag=rc.equipment_tag
-    (matches -> equipment=1.0), discipline=None.
-    Denominator = 0.20+0.30 = 0.50. semantic_score=0.30 ->
-    base = (0.20*0.30 + 0.30*1.0) / 0.50 = 0.72 -> HUMAN_REVIEW.
+    Top candidate: equipment_tag=None -> equipment non-computable,
+    location=None -> location non-computable, activity_name has CAST
+    synonym "casting" -> activity_score=1.0, discipline=None,
+    date=None. Denominator = 0.20+0.20 = 0.40 (semantic+activity
+    computable). semantic_score=0.90 -> base = (0.20*0.90 + 0.20*1.0)
+    / 0.40 = 0.95 -> final = 0.95 * (1-0) = 0.95 -> HUMAN_REVIEW
+    (evidence gate blocks AUTO_MATCH).
     Subsequent candidates: equipment="XX-999" contradiction (penalty=0.35),
-    activity=1.0 (real name has CAST synonym "pour"), location=None
-    (non-computable), semantic=0.30 -> base=0.72 -> 0.72*0.65=0.468 -> UNMATCHED.
-    Gap = 0.72 - 0.468 = 0.252 >= MIN_SCORE_GAP (0.05).
+    activity=1.0 (real name has CAST synonym "pour"), semantic=0.90 ->
+    base = (0.20*0.90 + 0.30*0.0 + 0.20*1.0) / 0.70 = 0.5429 ->
+    final = 0.5429 * 0.65 = 0.3529 -> UNMATCHED.
+    Gap = 0.95 - 0.3529 = 0.5971 >= MIN_SCORE_GAP (0.02).
     """
     from Engine.module_3_candidate.retriever import retrieve_candidates as _real_retrieve
 
-    _semantic = 0.30  # tuned for HUMAN_REVIEW
+    _semantic = 0.90  # tuned for HUMAN_REVIEW
 
     def _fn(extracted, index, top_k=5):  # noqa: ARG001
         real = _real_retrieve(extracted, index, top_k=top_k)
         overridden = []
         for i, rc in enumerate(real.candidates):
             if i == 0:
-                # Top candidate: activity+location non-computable -> final=0.72 (HUMAN_REVIEW)
+                # Top candidate: equipment_tag=None -> no equipment evidence,
+                # location=None -> no location evidence, activity_name has
+                # CAST synonym "casting" -> activity_score=1.0 (positive
+                # activity evidence but no location evidence -> Policy B
+                # fails). contradiction_penalty = 0.0 (no contradictions).
+                # AUTO_MATCH blocked by evidence gate -> HUMAN_REVIEW.
                 overridden.append(
                     RetrievedCandidate(
                         activity_id=rc.activity_id,
-                        activity_name="Perform unrelated construction task",  # no synonym -> activity non-computable
-                        equipment_tag=rc.equipment_tag,  # matches report -> equipment=1.0
-                        location=None,  # non-computable
+                        activity_name="Perform casting work",  # has CAST synonym "casting" -> activity=1.0
+                        equipment_tag=None,  # no equipment evidence -> equipment_score=0.0
+                        location=None,  # no location evidence -> location_score=0.0
                         discipline=None,  # non-computable
                         retrieval_score=_semantic,
                         retrieval_signals=RetrievalSignals(
                             semantic_score=_semantic,
-                            equipment_match=1.0,
-                            location_match=0.0,
-                            activity_match=0.0,
+                            equipment_match=0.0,  # no equipment tag
+                            location_match=0.0,  # no location
+                            activity_match=1.0,  # CAST synonym match
                         ),
                     )
                 )
             else:
-                # Subsequent candidates: equipment contradiction -> final=0.468 (UNMATCHED)
+                # Subsequent candidates: equipment contradiction -> UNMATCHED
                 overridden.append(
                     RetrievedCandidate(
                         activity_id=rc.activity_id,
@@ -457,16 +475,16 @@ def test_human_review_produces_pending_review():
 # ===========================================================================
 
 def test_unmatched_decision():
-    """A candidate with score < 0.60 triggers UNMATCHED."""
+    """A candidate with score < REVIEW_THRESHOLD triggers UNMATCHED."""
     from Engine.module_5_decision.decision import make_decision
 
-    candidate = _make_ranked_candidate(final_score=0.45)
+    candidate = _make_ranked_candidate(final_score=0.15)
     ranking = _make_ranking_result(candidates=[candidate])
     decision_result = make_decision(ranking)
 
     assert decision_result.decision == DecisionType.UNMATCHED
     assert decision_result.selected_activity_id is None
-    assert decision_result.confidence == 0.45
+    assert decision_result.confidence == 0.15
 
 
 def test_no_candidates_returns_unmatched():
@@ -698,3 +716,335 @@ def test_human_review_via_pipeline():
     assert result.failed() is False
     assert result.decision.decision == DecisionType.HUMAN_REVIEW
     assert result.update is None or result.update.update_status == UpdateStatus.PENDING_REVIEW
+
+
+# ===========================================================================
+# SEGMENTATION REGRESSION TESTS
+# ===========================================================================
+
+# Helper to access the segment function from the integration layer
+from integration.pipeline import segment_report
+
+
+def _make_pipeline_with_mock(retrieve_fn=None) -> Pipeline:
+    """Create a Pipeline with a fresh schedule index and optional mock."""
+    index = _load_schedule_index()
+    return Pipeline(schedule_index=index, retrieve_fn=retrieve_fn)
+
+
+# ---------------------------------------------------------------------------
+# A. Single activity: exactly one result, existing behavior unchanged
+# ---------------------------------------------------------------------------
+
+def test_single_activity_no_segmentation():
+    """A normal single-activity report must continue through the
+    pipeline exactly as before — no segmentation occurs."""
+    pipeline = _make_pipeline_with_mock(_auto_match_mock())
+    raw = _make_raw_report("RPT-SINGLE", "F-101 welding completed at Area A.")
+    result = pipeline.process_report(raw)
+
+    # No segmentation: .segments must be None
+    assert result.segments is None
+    # Existing pipeline result must be intact
+    assert result.failed() is False
+    assert result.decision is not None
+    assert result.decision.decision == DecisionType.AUTO_MATCH
+    assert result.update is not None
+    assert result.update.update_status == UpdateStatus.UPDATED
+    assert result.report_id == "RPT-SINGLE"
+
+
+def test_segment_report_returns_single_for_one_activity():
+    """segment_report() returns exactly one string for a single-activity report."""
+    report = _make_raw_report("RPT-SEG-A", "F-101 welding completed at Area A.")
+    segments = segment_report(report)
+    assert len(segments) == 1
+    assert segments[0] == "F-101 welding completed at Area A."
+
+
+# ---------------------------------------------------------------------------
+# B. Two independent activities → two independently processed results
+# ---------------------------------------------------------------------------
+
+def test_two_independent_activities_two_segments():
+    """Two clearly independent activities separated by a period must
+    be split into two independently processed segments."""
+    pipeline = _make_pipeline_with_mock(_auto_match_mock())
+    raw = _make_raw_report(
+        "RPT-TWO",
+        "F-101 welding completed at Area A. F-102 inspection completed at Area B."
+    )
+    result = pipeline.process_report(raw)
+
+    # Segmentation occurred
+    assert result.segments is not None
+    assert len(result.segments) == 2
+
+    # Each segment must have its own unique report_id with -seg-N suffix
+    assert result.segments[0].report_id == "RPT-TWO-seg-1"
+    assert result.segments[1].report_id == "RPT-TWO-seg-2"
+
+    # Both segments must have been successfully processed
+    assert result.segments[0].failed() is False
+    assert result.segments[1].failed() is False
+
+    # Each segment must have its own decision
+    assert result.segments[0].decision is not None
+    assert result.segments[1].decision is not None
+
+    # The top-level result mirrors the original report_id
+    assert result.report_id == "RPT-TWO"
+
+
+# ---------------------------------------------------------------------------
+# C. Semicolon: two results only if both independently satisfy the evidence rule
+# ---------------------------------------------------------------------------
+
+def test_semicolon_splits_when_both_have_evidence():
+    """A semicolon between two independently-evidenced activities must
+    split into two segments."""
+    pipeline = _make_pipeline_with_mock(_auto_match_mock())
+    raw = _make_raw_report(
+        "RPT-SEMI",
+        "F-101 welding completed; F-102 inspection completed."
+    )
+    result = pipeline.process_report(raw)
+
+    assert result.segments is not None
+    assert len(result.segments) == 2
+    assert result.segments[0].report_id == "RPT-SEMI-seg-1"
+    assert result.segments[1].report_id == "RPT-SEMI-seg-2"
+
+
+# ---------------------------------------------------------------------------
+# D. One activity with progress: exactly one result
+# ---------------------------------------------------------------------------
+
+def test_activity_with_progress_one_result():
+    """'F-101 welding started yesterday and is now 50% complete.' is a
+    single sentence with no sentence boundary — must produce exactly
+    one result."""
+    pipeline = _make_pipeline_with_mock(_auto_match_mock())
+    raw = _make_raw_report(
+        "RPT-PROGRESS",
+        "F-101 welding started yesterday and is now 50% complete."
+    )
+    result = pipeline.process_report(raw)
+
+    # No segmentation
+    assert result.segments is None
+    # Processed normally
+    assert result.failed() is False
+    assert result.decision is not None
+    assert result.report_id == "RPT-PROGRESS"
+
+
+def test_segment_report_returns_single_for_progress_phrase():
+    """segment_report() returns exactly one string for a progress phrase."""
+    report = _make_raw_report(
+        "RPT-SEG-PROG",
+        "F-101 welding started yesterday and is now 50% complete."
+    )
+    segments = segment_report(report)
+    assert len(segments) == 1
+    assert segments[0] == "F-101 welding started yesterday and is now 50% complete."
+
+
+# ---------------------------------------------------------------------------
+# E. Context phrase: exactly one result
+# ---------------------------------------------------------------------------
+
+def test_context_phrase_no_segmentation():
+    """'F-101 welding completed after inspection approval.' must produce
+    exactly one result — 'after inspection approval' is a contextual
+    phrase, not an independent activity."""
+    pipeline = _make_pipeline_with_mock(_auto_match_mock())
+    raw = _make_raw_report(
+        "RPT-CONTEXT",
+        "F-101 welding completed after inspection approval."
+    )
+    result = pipeline.process_report(raw)
+
+    # No segmentation
+    assert result.segments is None
+    # Processed normally
+    assert result.failed() is False
+    assert result.decision is not None
+    assert result.report_id == "RPT-CONTEXT"
+
+
+def test_segment_report_returns_single_for_context_phrase():
+    """segment_report() returns exactly one string for a context phrase."""
+    report = _make_raw_report(
+        "RPT-SEG-CONTEXT",
+        "F-101 welding completed after inspection approval."
+    )
+    segments = segment_report(report)
+    assert len(segments) == 1
+
+
+# ---------------------------------------------------------------------------
+# F. Mixed quality: only the first is an independent activity
+# ---------------------------------------------------------------------------
+
+def test_mixed_quality_only_first_activity():
+    """'F-101 welding completed. Work delayed because of rain.' must
+    produce exactly one result — the second part lacks an equipment
+    identity signal and is re-joined with the first."""
+    pipeline = _make_pipeline_with_mock(_auto_match_mock())
+    raw = _make_raw_report(
+        "RPT-MIXED",
+        "F-101 welding completed. Work delayed because of rain."
+    )
+    result = pipeline.process_report(raw)
+
+    # No segmentation: second part lacks evidence, so merged back
+    assert result.segments is None
+    # Processed normally
+    assert result.failed() is False
+    assert result.decision is not None
+    assert result.report_id == "RPT-MIXED"
+
+
+def test_segment_report_merges_contextual_phrase():
+    """segment_report() must re-join a contextual phrase without
+    an equipment identity with the preceding activity."""
+    report = _make_raw_report(
+        "RPT-SEG-MIXED",
+        "F-101 welding completed. Work delayed because of rain."
+    )
+    segments = segment_report(report)
+    # Second part fails evidence rule → merged back into one segment
+    assert len(segments) == 1
+
+
+# ---------------------------------------------------------------------------
+# G. Segment failure isolation: one failure does not discard others
+# ---------------------------------------------------------------------------
+
+def test_segment_failure_isolation():
+    """If one segment raises an exception during processing, the
+    other valid segment must still be processed and represented.
+
+    Uses a mock retrieve function that raises on the second call,
+    simulating a transient failure in one segment's retrieval step.
+    """
+    index = _load_schedule_index()
+    first_mock = _mock_retrieve_from_ranked(
+        [_make_ranked_candidate(final_score=0.95)],
+        schedule_index=index,
+    )
+    call_count = [0]
+
+    def _failing_retrieve_second(extracted, sched_index, top_k=5):
+        """First call succeeds, second call raises."""
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return first_mock(extracted, sched_index, top_k)
+        raise RuntimeError("Transient retrieval failure for seg-2")
+
+    pipeline = _make_pipeline_with_mock(retrieve_fn=_failing_retrieve_second)
+    raw = _make_raw_report(
+        "RPT-ISOLATE",
+        "F-101 welding completed at Area A. F-102 inspection completed at Area B."
+    )
+    result = pipeline.process_report(raw)
+
+    # Segmentation occurred
+    assert result.segments is not None
+    assert len(result.segments) == 2
+
+    # Top-level result carries the original report_id
+    assert result.report_id == "RPT-ISOLATE"
+
+    # seg-1 must have been processed successfully (no exception propagated)
+    assert result.segments[0].failed() is False
+    assert result.segments[0].decision is not None
+
+    # seg-2 must still have a PipelineResult representation despite failure
+    # (it must NOT silently disappear); failure is captured in stages
+    assert result.segments[1] is not None
+    assert result.segments[1].report_id == "RPT-ISOLATE-seg-2"
+    assert result.segments[1].failed() is True
+    assert any(not s.success for s in result.segments[1].stages)
+
+
+def test_segment_failure_isolation_via_process_segments():
+    """Pipeline.process_segments() must return all segment results
+    even when one segment raises an unexpected error."""
+    pipeline = _make_pipeline_with_mock(_auto_match_mock())
+    # Create a report that will split into two valid segments
+    raw = _make_raw_report(
+        "RPT-ISO-2",
+        "F-101 welding completed at Area A. F-102 inspection completed at Area B."
+    )
+    result = pipeline.process_segments(raw)
+
+    assert result.segments is not None
+    assert len(result.segments) == 2
+    assert result.segments[0].report_id == "RPT-ISO-2-seg-1"
+    assert result.segments[1].report_id == "RPT-ISO-2-seg-2"
+
+    # Both segments must have been processed (no silent failures)
+    assert result.segments[0].failed() is False
+    assert result.segments[1].failed() is False
+
+
+# ---------------------------------------------------------------------------
+# H. Cross-association safety
+# ---------------------------------------------------------------------------
+
+def test_cross_association_safety():
+    """'F-101 welding completed. F-102 inspection completed.' must NOT
+    cross-associate: F-101 must never be combined with inspection and
+    F-102 must never be combined with welding.
+
+    Each segment is processed independently with its own equipment
+    tag matched to the correct schedule entry.  The mock retrieve
+    function returns schedule candidates keyed by activity_id;
+    seg-1 (F-101) receives candidates with equipment_tag='F-101',
+    and seg-2 (F-102) receives candidates with equipment_tag='F-102'.
+    Cross-contamination would mean seg-1 gets F-102 data or seg-2
+    gets F-101 data, which must never happen.
+    """
+    pipeline = _make_pipeline_with_mock(_auto_match_mock())
+    raw = _make_raw_report(
+        "RPT-XASSOC",
+        "F-101 welding completed at Area A. F-102 inspection completed at Area B."
+    )
+    result = pipeline.process_report(raw)
+
+    # Segmentation occurred
+    assert result.segments is not None
+    assert len(result.segments) == 2
+
+    # Each segment has its own unique report_id
+    assert result.segments[0].report_id == "RPT-XASSOC-seg-1"
+    assert result.segments[1].report_id == "RPT-XASSOC-seg-2"
+
+    # Verify each segment was processed independently by checking that
+    # the extraction produced the correct equipment tag per segment.
+    # This confirms no cross-contamination between segments.
+    seg1_extract = result.segments[0].extracted_report
+    seg2_extract = result.segments[1].extracted_report
+
+    assert seg1_extract is not None
+    assert seg2_extract is not None
+
+    # seg-1 must have F-101, NOT F-102
+    seg1_equipment = {e.value for e in seg1_extract.equipment_tags}
+    assert "F-101" in seg1_equipment
+    assert "F-102" not in seg1_equipment, (
+        "Cross-association detected: F-102 found in seg-1 extraction"
+    )
+
+    # seg-2 must have F-102, NOT F-101
+    seg2_equipment = {e.value for e in seg2_extract.equipment_tags}
+    assert "F-102" in seg2_equipment
+    assert "F-101" not in seg2_equipment, (
+        "Cross-association detected: F-101 found in seg-2 extraction"
+    )
+
+    # Both segments must have been processed successfully
+    assert result.segments[0].failed() is False
+    assert result.segments[1].failed() is False

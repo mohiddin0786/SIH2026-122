@@ -8,6 +8,7 @@ suitable for the SIH prototype. Does NOT modify the baseline Schedule Master.
 from __future__ import annotations
 
 import csv
+import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -85,6 +86,7 @@ class ExecutionStateRepository:
         self._cache: Dict[str, ExecutionStateRecord] = {}
         self._loaded = False
         self._file_mtime_ns: Optional[int] = None
+        self._hash: Optional[str] = None
 
     def _ensure_store_exists(self) -> None:
         """Create the execution state CSV with headers if it doesn't exist."""
@@ -96,13 +98,18 @@ class ExecutionStateRepository:
                 writer.writeheader()
             logger.info("Created execution state store at %s", path)
 
+    @staticmethod
+    def _compute_hash(path: Path) -> str:
+        """Return SHA-256 hex digest of the file's current bytes."""
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
     def _load_all(self) -> None:
         """Load all records into memory cache, refreshing if the CSV changed on disk."""
         self._ensure_store_exists()
         path = Path(self.config.execution_state_path)
-        current_mtime_ns = path.stat().st_mtime_ns
+        current_hash = self._compute_hash(path)
 
-        if self._loaded and self._file_mtime_ns == current_mtime_ns:
+        if self._loaded and self._hash is not None and self._hash == current_hash:
             return
 
         try:
@@ -123,7 +130,7 @@ class ExecutionStateRepository:
                 self._cache[record.activity_id] = record
 
         self._loaded = True
-        self._file_mtime_ns = current_mtime_ns
+        self._hash = current_hash
         logger.debug("Loaded %d execution state records from %s", len(self._cache), path)
 
     @staticmethod
@@ -147,7 +154,7 @@ class ExecutionStateRepository:
             for record in self._cache.values():
                 writer.writerow(record.to_dict())
 
-        self._file_mtime_ns = path.stat().st_mtime_ns
+        self._hash = self._compute_hash(path)
         logger.debug("Wrote %d execution state records", len(self._cache))
 
     def get(self, activity_id: str) -> Optional[ExecutionState]:
@@ -192,3 +199,4 @@ class ExecutionStateRepository:
         self._cache.clear()
         self._loaded = False
         self._file_mtime_ns = None
+        self._hash = None
