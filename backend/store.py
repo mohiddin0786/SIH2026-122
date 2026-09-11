@@ -136,6 +136,27 @@ class ApiStateStore:
             and r.get("userDecision") is None
         ]
 
+    def auto_resolve_stale_attention(self, activity_id: str, resolved_by_report_id: Optional[str] = None) -> None:
+        with _lock:
+            changed = False
+            for report in self.reports.values():
+                if report.get("userDecision") is not None:
+                    continue
+                is_target = (
+                    report.get("matchedActivityId") == activity_id
+                    or (report.get("violation") or {}).get("activityId") == activity_id
+                )
+                if is_target and report.get("status") in ("NEEDS_REVIEW", "SCHEDULE_VIOLATION"):
+                    report["userDecision"] = "RESOLVED"
+                    report["reviewNote"] = (
+                        f"Auto-resolved: activity {activity_id} completed"
+                        + (f" by report {resolved_by_report_id}" if resolved_by_report_id else "")
+                    )
+                    report["updatedAt"] = _now_iso()
+                    changed = True
+            if changed:
+                self._save()
+
     # -- activity update history -------------------------------------------------------
 
     def add_update(

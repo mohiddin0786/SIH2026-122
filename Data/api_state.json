@@ -1,0 +1,332 @@
+{
+  "reports": {
+    "RPT-00001": {
+      "_id": "RPT-00001",
+      "reportId": "RPT-00001",
+      "projectId": "proj-sih26122",
+      "text": "Motor power connection for pump P-101 completed in Pump Area A.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "ELE-007",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00002": {
+      "_id": "RPT-00002",
+      "reportId": "RPT-00002",
+      "projectId": "proj-sih26122",
+      "text": "Pump inspection for P-101 completed in Pump Area A.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "MEC-006",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00003": {
+      "_id": "RPT-00003",
+      "reportId": "RPT-00003",
+      "projectId": "proj-sih26122",
+      "text": "Pump P-101 alignment completed in Pump Area A.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "MEC-005",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00004": {
+      "_id": "RPT-00004",
+      "reportId": "RPT-00004",
+      "projectId": "proj-sih26122",
+      "text": "Pump P-101 installation completed in Pump Area A.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "MEC-004",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00005": {
+      "_id": "RPT-00005",
+      "reportId": "RPT-00005",
+      "projectId": "proj-sih26122",
+      "text": "Foundation F-101 curing completed in Pump Area A.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "CIV-003",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00006": {
+      "_id": "RPT-00006",
+      "reportId": "RPT-00006",
+      "projectId": "proj-sih26122",
+      "text": "Concrete casting for foundation F-101 completed in Pump Area A.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "CIV-002",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00007": {
+      "_id": "RPT-00007",
+      "reportId": "RPT-00007",
+      "projectId": "proj-sih26122",
+      "text": "Excavation for foundation F-101 completed in Pump Area A.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "CIV-001",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00008": {
+      "_id": "RPT-00008",
+      "reportId": "RPT-00008",
+      "projectId": "proj-sih26122",
+      "text": "Motor power connection for pump P-102 completed in Pump Area A.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SCHEDULE_VIOLATION",
+      "matchedActivityId": "ELE-014",
+      "candidateActivities": [],
+      "violation": {
+        "rule": "predecessor_incomplete",
+        "activityId": "ELE-014",
+        "predecessorId": "MEC-013",
+        "predecessorStatus": "no execution record (not yet reported)",
+        "message": "Schedule consistency violation: activity ELE-014 is being marked COMPLETED, but predecessor MEC-013 is no execution record (not yet reported).",
+        "predecessorChain": [
+          {
+            "activity_id": "MEC-013",
+            "activity_name": "Complete pump inspection P-102",
+            "status": "NOT_STARTED"
+          },
+          {
+            "activity_id": "MEC-012",
+            "activity_name": "Align pump P-102",
+            "status": "NOT_STARTED"
+          },
+          {
+            "activity_id": "MEC-011",
+            "activity_name": "Install pump P-102",
+            "status": "NOT_STARTED"
+          },
+          {
+            "activity_id": "CIV-010",
+            "activity_name": "Cure foundation F-102",
+            "status": "NOT_STARTED"
+          },
+          {
+            "activity_id": "CIV-009",
+            "activity_name": "Cast concrete foundation F-102",
+            "status": "NOT_STARTED"
+          },
+          {
+            "activity_id": "CIV-008",
+            "activity_name": "Excavate foundation F-102",
+            "status": "NOT_STARTED"
+          }
+        ]
+      },
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00009": {
+      "_id": "RPT-00009",
+      "reportId": "RPT-00009",
+      "projectId": "proj-sih26122",
+      "text": "Foundation F-103 excavation completed in Pump Area B.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "CIV-034",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00010": {
+      "_id": "RPT-00010",
+      "reportId": "RPT-00010",
+      "projectId": "proj-sih26122",
+      "text": "Concrete casting for foundation F-103 is approximately 55% complete in Pump Area B.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SUCCESS",
+      "matchedActivityId": "CIV-035",
+      "candidateActivities": [],
+      "violation": null,
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    },
+    "RPT-00011": {
+      "_id": "RPT-00011",
+      "reportId": "RPT-00011",
+      "projectId": "proj-sih26122",
+      "text": "Foundation F-103 curing completed in Pump Area B.",
+      "submittedAt": "2026-09-11T08:08:53Z",
+      "status": "SCHEDULE_VIOLATION",
+      "matchedActivityId": "CIV-036",
+      "candidateActivities": [],
+      "violation": {
+        "rule": "predecessor_incomplete",
+        "activityId": "CIV-036",
+        "predecessorId": "CIV-035",
+        "predecessorStatus": "IN_PROGRESS",
+        "message": "Schedule consistency violation: activity CIV-036 is being marked COMPLETED, but predecessor CIV-035 is IN_PROGRESS.",
+        "predecessorChain": [
+          {
+            "activity_id": "CIV-035",
+            "activity_name": "Cast concrete foundation F-103",
+            "status": "IN_PROGRESS"
+          }
+        ]
+      },
+      "userDecision": null,
+      "reviewNote": null,
+      "createdAt": "2026-09-11T08:08:53Z",
+      "updatedAt": "2026-09-11T08:08:53Z"
+    }
+  },
+  "updates": [
+    {
+      "_id": "UPD-00001",
+      "activityId": "ELE-007",
+      "reportId": "RPT-00001",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "COMPLETED",
+      "previousProgress": 0,
+      "newProgress": 100.0,
+      "message": "Marked as completed",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    },
+    {
+      "_id": "UPD-00002",
+      "activityId": "MEC-006",
+      "reportId": "RPT-00002",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "COMPLETED",
+      "previousProgress": 0,
+      "newProgress": 100.0,
+      "message": "Marked as completed",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    },
+    {
+      "_id": "UPD-00003",
+      "activityId": "MEC-005",
+      "reportId": "RPT-00003",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "COMPLETED",
+      "previousProgress": 0,
+      "newProgress": 100.0,
+      "message": "Marked as completed",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    },
+    {
+      "_id": "UPD-00004",
+      "activityId": "MEC-004",
+      "reportId": "RPT-00004",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "COMPLETED",
+      "previousProgress": 0,
+      "newProgress": 100.0,
+      "message": "Marked as completed",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    },
+    {
+      "_id": "UPD-00005",
+      "activityId": "CIV-003",
+      "reportId": "RPT-00005",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "COMPLETED",
+      "previousProgress": 0,
+      "newProgress": 100.0,
+      "message": "Marked as completed",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    },
+    {
+      "_id": "UPD-00006",
+      "activityId": "CIV-002",
+      "reportId": "RPT-00006",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "COMPLETED",
+      "previousProgress": 0,
+      "newProgress": 100.0,
+      "message": "Marked as completed",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    },
+    {
+      "_id": "UPD-00007",
+      "activityId": "CIV-001",
+      "reportId": "RPT-00007",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "COMPLETED",
+      "previousProgress": 0,
+      "newProgress": 100.0,
+      "message": "Marked as completed",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    },
+    {
+      "_id": "UPD-00008",
+      "activityId": "CIV-034",
+      "reportId": "RPT-00009",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "COMPLETED",
+      "previousProgress": 0,
+      "newProgress": 100.0,
+      "message": "Marked as completed",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    },
+    {
+      "_id": "UPD-00009",
+      "activityId": "CIV-035",
+      "reportId": "RPT-00010",
+      "previousStatus": "NOT_STARTED",
+      "newStatus": "IN_PROGRESS",
+      "previousProgress": 0,
+      "newProgress": 55.0,
+      "message": "Status changed to In Progress, progress 0% \u2192 55.0%",
+      "source": null,
+      "createdAt": "2026-09-11T08:08:53Z"
+    }
+  ],
+  "report_counter": 11,
+  "update_counter": 9
+}

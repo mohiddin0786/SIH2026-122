@@ -112,13 +112,6 @@ _STATUS_MAP = {
 def _activity_view(row: pd.Series) -> dict:
     activity_id = row["activity_id"]
     exec_state: Optional[ExecutionState] = _exec_repo().get(activity_id)
-    has_pending_review = any(
-        report.get("matchedActivityId") == activity_id
-        or (report.get("violation") or {}).get("activityId") == activity_id
-        or any(candidate.get("activityId") == activity_id for candidate in report.get("candidateActivities", []))
-        for report in store.list_attention_reports(PROJECT_ID)
-    )
-
     if exec_state is not None:
         status = _STATUS_MAP.get(exec_state.actual_status.value, "NOT_STARTED")
         progress = exec_state.actual_progress if exec_state.actual_progress is not None else 0
@@ -126,6 +119,13 @@ def _activity_view(row: pd.Series) -> dict:
         timestamp = exec_state.last_update_timestamp
     else:
         status, progress, last_report_id, timestamp = "NOT_STARTED", 0, None, None
+
+    has_pending_review = (status != "COMPLETED") and any(
+        report.get("matchedActivityId") == activity_id
+        or (report.get("violation") or {}).get("activityId") == activity_id
+        or any(candidate.get("activityId") == activity_id for candidate in report.get("candidateActivities", []))
+        for report in store.list_attention_reports(PROJECT_ID)
+    )
 
     return {
         "_id": activity_id,
@@ -361,6 +361,8 @@ def _process_single_report(project_id: str, text: str, source_type: str = "front
             activity_id, report_id, prev_status, new_status, prev_progress, new_progress, message
         )
         store.create_report(report_id, project_id, text, status="SUCCESS", matched_activity_id=activity_id)
+        if new_status == "COMPLETED":
+            store.auto_resolve_stale_attention(activity_id, resolved_by_report_id=report_id)
         return {
             "status": "SUCCESS",
             "reportId": report_id,
@@ -418,6 +420,8 @@ def _write_resolution_state(activity_id: str, report_id: str, message: str, sour
         last_update_timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
     repo.save(state)
+    if state.actual_status == ExecutionStatus.COMPLETED:
+        store.auto_resolve_stale_attention(activity_id, resolved_by_report_id=report_id)
     return store.add_update(
         activity_id, report_id, previous_status, "COMPLETED", previous_progress, 100.0,
         message, source=source,
@@ -657,6 +661,8 @@ def confirm_activity(report_id: str, body: ConfirmBody):
     )
 
     store.update_report(report_id, status="SUCCESS", matchedActivityId=body.activityId, userDecision="CONFIRMED")
+    if mapping.actual_status == ExecutionStatus.COMPLETED:
+        store.auto_resolve_stale_attention(body.activityId, resolved_by_report_id=report_id)
 
     return envelope({
         "status": "SUCCESS",
