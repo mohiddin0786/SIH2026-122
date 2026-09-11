@@ -198,6 +198,11 @@ class ScheduleUpdater:
         chain = self._get_predecessor_chain(activity_id)
         if not chain:
             return None
+        pending_chain = [
+            predecessor
+            for predecessor in chain
+            if predecessor["status"] != ExecutionStatus.COMPLETED.value
+        ]
         for predecessor in chain:
             predecessor_id = predecessor["activity_id"]
             predecessor_status = predecessor["status"]
@@ -212,7 +217,7 @@ class ScheduleUpdater:
                         f"predecessor {predecessor_id}, which does not exist in "
                         f"Schedule Master."
                     ),
-                    predecessor_chain=chain,
+                    predecessor_chain=pending_chain,
                 )
             if predecessor_status != ExecutionStatus.COMPLETED.value:
                 status_label = (
@@ -230,7 +235,7 @@ class ScheduleUpdater:
                         f"being marked COMPLETED, but predecessor {predecessor_id} "
                         f"is {status_label}."
                     ),
-                    predecessor_chain=chain,
+                    predecessor_chain=pending_chain,
                 )
         return None
 

@@ -112,6 +112,12 @@ _STATUS_MAP = {
 def _activity_view(row: pd.Series) -> dict:
     activity_id = row["activity_id"]
     exec_state: Optional[ExecutionState] = _exec_repo().get(activity_id)
+    has_pending_review = any(
+        report.get("matchedActivityId") == activity_id
+        or (report.get("violation") or {}).get("activityId") == activity_id
+        or any(candidate.get("activityId") == activity_id for candidate in report.get("candidateActivities", []))
+        for report in store.list_attention_reports(PROJECT_ID)
+    )
 
     if exec_state is not None:
         status = _STATUS_MAP.get(exec_state.actual_status.value, "NOT_STARTED")
@@ -127,6 +133,7 @@ def _activity_view(row: pd.Series) -> dict:
         "name": row["activity_name"],
         "description": row.get("activity_description") or row["activity_name"],
         "status": status,
+        "hasPendingReview": has_pending_review,
         "progress": progress,
         "plannedStart": row["planned_start"],
         "plannedFinish": row["planned_finish"],
@@ -558,6 +565,7 @@ def submit_batch(project_id: str, body: SubmitBatchBody):
         "total": len(results),
         "success": sum(1 for r in results if r.get("status") == "SUCCESS"),
         "needsReview": sum(1 for r in results if r.get("status") == "NEEDS_REVIEW"),
+        "scheduleViolation": sum(1 for r in results if r.get("status") == "SCHEDULE_VIOLATION"),
         "unmatched": sum(1 for r in results if r.get("status") == "UNMATCHED"),
         "errors": sum(1 for r in results if r.get("status") == "ERROR"),
     }

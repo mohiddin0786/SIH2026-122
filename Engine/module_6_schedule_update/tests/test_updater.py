@@ -560,7 +560,7 @@ def test_enforce_predecessor_consistency_disabled(updater):
 
 
 def test_predecessor_chain_blocks_on_first_incomplete_and_exposes_full_chain(updater):
-    """The gate remains first-failure based while the violation exposes all links."""
+    """The gate remains first-failure based while the violation exposes pending links."""
     schedule = pd.DataFrame([
         {"activity_id": "A", "activity_name": "A", "predecessor_activity_id": ""},
         {"activity_id": "B", "activity_name": "B", "predecessor_activity_id": "A"},
@@ -578,7 +578,7 @@ def test_predecessor_chain_blocks_on_first_incomplete_and_exposes_full_chain(upd
 
     assert result.update_status == UpdateStatus.PENDING_REVIEW
     assert result.violation.predecessor_id == "B"
-    assert [item["activity_id"] for item in result.violation.predecessor_chain] == ["B", "A"]
+    assert [item["activity_id"] for item in result.violation.predecessor_chain] == ["B"]
     assert result.violation.predecessor_chain[0]["status"] == ExecutionStatus.NOT_STARTED.value
 
 
