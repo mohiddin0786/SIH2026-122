@@ -24,7 +24,9 @@ export default function Activities() {
     const matchSearch =
       a.name.toLowerCase().includes(search.toLowerCase()) ||
       a.location.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter ? a.status === statusFilter : true;
+    const matchStatus = statusFilter === 'NEEDS_REVIEW'
+      ? a.hasPendingReview
+      : statusFilter ? a.status === statusFilter : true;
     return matchSearch && matchStatus;
   });
 

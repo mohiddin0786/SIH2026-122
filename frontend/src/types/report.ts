@@ -83,6 +83,7 @@ export interface BatchSummary {
   total: number;
   success: number;
   needsReview: number;
+  scheduleViolation: number;
   unmatched: number;
   errors: number;
 }
