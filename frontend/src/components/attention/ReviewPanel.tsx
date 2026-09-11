@@ -407,17 +407,31 @@ export function ReviewPanel({ report, onClose, onResolved }: ReviewPanelProps) {
                           <div className="w-1.5 h-1.5 bg-white rounded-full" />
                         )}
                       </div>
-                      <span
-                        className="text-sm font-medium"
-                        style={{
-                          color:
-                            selectedCandidate === candidate.activityId
-                              ? '#1F6055'
-                              : '#3C3830',
-                        }}
-                      >
-                        {candidate.activityName}
-                      </span>
+                      <div className="min-w-0">
+  <div
+    className="text-[11px] font-mono font-semibold mb-0.5"
+    style={{
+      color:
+        selectedCandidate === candidate.activityId
+          ? '#1F6055'
+          : '#6B655D',
+    }}
+  >
+    {candidate.activityId}
+  </div>
+
+  <div
+    className="text-sm font-medium"
+    style={{
+      color:
+        selectedCandidate === candidate.activityId
+          ? '#1F6055'
+          : '#3C3830',
+    }}
+  >
+    {candidate.activityName}
+  </div>
+</div>
                     </label>
                   ))}
                 </div>

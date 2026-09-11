@@ -167,15 +167,31 @@ export function ReportResult({ result, onConfirm, onReject, onReset }: ReportRes
                   <div className="w-1.5 h-1.5 bg-white rounded-full" />
                 )}
               </div>
-              <span
-                className="text-sm font-medium"
-                style={{
-                  color:
-                    selectedCandidate === candidate.activityId ? '#16796E' : '#3A3630',
-                }}
-              >
-                {candidate.activityName}
-              </span>
+              <div className="min-w-0">
+  <div
+    className="text-[11px] font-mono font-semibold mb-0.5"
+    style={{
+      color:
+        selectedCandidate === candidate.activityId
+          ? '#16796E'
+          : '#6B655D',
+    }}
+  >
+    {candidate.activityId}
+  </div>
+
+  <div
+    className="text-sm font-medium"
+    style={{
+      color:
+        selectedCandidate === candidate.activityId
+          ? '#16796E'
+          : '#3A3630',
+    }}
+  >
+    {candidate.activityName}
+  </div>
+</div>
             </label>
           ))}
         </div>
