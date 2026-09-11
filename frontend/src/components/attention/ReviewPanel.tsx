@@ -430,6 +430,11 @@ export function ReviewPanel({ report, onClose, onResolved }: ReviewPanelProps) {
     }}
   >
     {candidate.activityName}
+    {candidate.activityArea && (
+  <div className="text-xs text-muted mt-1">
+    Area: {candidate.activityArea}
+  </div>
+)}
   </div>
 </div>
                     </label>

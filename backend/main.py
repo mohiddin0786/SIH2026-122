@@ -363,9 +363,17 @@ def _process_single_report(project_id: str, text: str, source_type: str = "front
 
     if decision.decision == DecisionType.HUMAN_REVIEW:
         candidates = [
-            {"activityId": c.activity_id, "activityName": c.activity_name}
-            for c in (result.ranking.ranked_candidates[:3] if result.ranking else [])
-        ]
+    {
+        "activityId": c.activity_id,
+        "activityName": c.activity_name,
+        "activityArea": (
+            _get_activity_row(c.activity_id)["location"]
+            if _get_activity_row(c.activity_id) is not None
+            else None
+        ),
+    }
+    for c in (result.ranking.ranked_candidates[:3] if result.ranking else [])
+]
         store.create_report(report_id, project_id, text, status="NEEDS_REVIEW", candidate_activities=candidates)
         return {"status": "NEEDS_REVIEW", "reportId": report_id, "candidates": candidates}
 
