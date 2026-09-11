@@ -190,6 +190,11 @@ export function ReportResult({ result, onConfirm, onReject, onReset }: ReportRes
     }}
   >
     {candidate.activityName}
+    {candidate.activityArea && (
+  <div className="text-xs text-muted mt-1">
+    Area: {candidate.activityArea}
+  </div>
+)}
   </div>
 </div>
             </label>

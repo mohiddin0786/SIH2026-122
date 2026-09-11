@@ -36,6 +36,7 @@ export interface BulkCompleteChainRequest {
 export interface Candidate {
   activityId: string;
   activityName: string;
+  activityArea?: string | null;
 }
 
 export interface FieldReport {
